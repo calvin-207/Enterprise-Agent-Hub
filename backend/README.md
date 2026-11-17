@@ -17,13 +17,25 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
-## 初始化数据：
+## 初始化数据（Enterprise Agent Hub）
 
-```
+默认只创建 `SuperAdmin` 超级管理员账户，不再创建 `admin` / `guest` 演示账户，也不会设置公共默认密码。初始化是幂等的，不会重置已有管理员密码。
+
+首次安装可使用环境变量设置**唯一且足够强**的管理员密码：
+
+```bash
+export INITIAL_SUPERUSER_PASSWORD='替换为你自己的高强度密码'
 python manage.py init
+unset INITIAL_SUPERUSER_PASSWORD
 ```
 
-## 🚦启动项目（初始账号：SuperAdmin 密码：a123456）
+也可以不设置环境变量，先执行 `python manage.py init`，随后运行 `python manage.py changepassword SuperAdmin` 创建初始密码。
+
+仅初始化已有功能的菜单：首页工作台、消息中心、组织与权限、系统配置；Agent 业务菜单将在真实页面与 API 开发完成后添加。
+
+不要在已有业务数据库上使用 `python manage.py init -y` 进行破坏性重置。
+
+## 🚦启动项目（管理员：SuperAdmin；密码由首次初始化时独立设置）
 
 ```
 #开发服务器方式
