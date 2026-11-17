@@ -1,8 +1,6 @@
 import os
-from mimetypes import inited
 
 import django
-from django.core.cache import cache
 from django.db import transaction
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "main.settings")
@@ -67,33 +65,13 @@ class Initialize:
         print(f"初始化完成【{name}】")
 
     def init_dept(self):
-        """
-        初始化部门信息
-        """
-        print('====================== begin init dept ======================')
-        (parent, status) = Dept.objects.update_or_create(
-            key="Lee-Admin",
-            defaults={
-                "name": "Lee-Admin",
-                "key": "Lee-Admin",
-                "sort": 1,
-            })
-        children  = [
-            {
-                "name": "Finance Department",
-                "key": "Finance Department",
-                "sort": 2,
-            },
-            {
-                "name": "R&D Department",
-                "key": "R&D Department",
-                "sort": 3,
-            },
-        ]
-        for _it in children:
-            _it["parent"] = parent
-            Dept.objects.update_or_create(key=_it["key"],defaults=_it)
-        print('====================== end init dept ======================')
+        """创建平台组织根节点，不预设虚构的研发/财务部门。"""
+        print("====================== begin init dept ======================")
+        Dept.objects.update_or_create(
+            key="enterprise-agent-hub",
+            defaults={"name": "平台组织", "sort": 1, "parent": None},
+        )
+        print("====================== end init dept ======================")
 
     def init_button(self):
         """初始化权限表标识"""
@@ -120,333 +98,66 @@ class Initialize:
 
 
     def init_menu(self):
-        print('====================== begin init menu ======================')
-        self.menu_data = [
-            {
-                "code": "01599f73f61848aa811f687b1cfc1588",
-                "creator_id": "0",
-                "parent_id": None,
-                "icon": "Football",
-                "name": "功能演示",
-                "sort": 60,
-                "type": 0,
-                "link_url": "",
-                "web_path": "/functionsDemosDirs",
-                "component": "",
-                "component_name": "",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "150e0957200146b3bd0226c45e8031f7",
-                "creator_id": "0",
-                "parent_id": "01599f73f61848aa811f687b1cfc1588",
-                "icon": "Link",
-                "name": "iframe嵌套",
-                "sort": 61,
-                "type": 2,
-                "link_url": "https://doc.lee.cn",
-                "web_path": "/docdvlyadmin",
-                "component": "",
-                "component_name": "",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "1b5018bdb5e04698b84da505e8a6b93c",
-                "creator_id": "0",
-                "parent_id": "af862854dc44410d84b8b2ae5c16c90d",
-                "icon": "TrophyBase",
-                "name": "角色管理",
-                "sort": 100,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/roleManage",
-                "component": "",
-                "component_name": "roleManage",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "205910763e0e42fbbc12833d2f7d61bb",
-                "creator_id": "0",
-                "parent_id": "563092a536194a1493551a0043f1f1a3",
-                "icon": "Reading",
-                "name": "字典管理",
-                "sort": 30,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/sysDictionary",
-                "component": "",
-                "component_name": "sysDictionary",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "24d2eb79a21141afbe73058cc02545e0",
-                "creator_id": "0",
-                "parent_id": "af862854dc44410d84b8b2ae5c16c90d",
-                "icon": "ChatLineSquare",
-                "name": "操作日志",
-                "sort": 200,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/journalManage",
-                "component": "",
-                "component_name": "journalManage",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "2e9937b37ac94e248e9ed159bfe7b655",
-                "creator_id": "0",
-                "parent_id": "af862854dc44410d84b8b2ae5c16c90d",
-                "icon": "Collection",
-                "name": "菜单管理",
-                "sort": 90,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/menuManage",
-                "component": "",
-                "component_name": "menuManage",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "31552696153b42599ce1faf6fe495824",
-                "creator_id": "0",
-                "parent_id": "af862854dc44410d84b8b2ae5c16c90d",
-                "icon": "User",
-                "name": "用户管理",
-                "sort": 40,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/buserManage",
-                "component": "",
-                "component_name": "buserManage",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "44662b7fe6b54395994f28ed88eaf3f0",
-                "creator_id": "0",
-                "parent_id": None,
-                "icon": "Message",
-                "name": "我的消息",
-                "sort": 30,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/myMessage",
-                "component": "",
-                "component_name": "myMessage",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "4a7a7748387f44dbab72027d8bdc87f7",
-                "creator_id": "0",
-                "parent_id": None,
-                "icon": "House",
-                "name": "首页",
-                "sort": 10,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/home",
-                "component": "",
-                "component_name": "home",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "4f947108c5bf44f2b97e4a80daebf772",
-                "creator_id": "0",
-                "parent_id": "563092a536194a1493551a0043f1f1a3",
-                "icon": "ChatDotRound",
-                "name": "通知公告",
-                "sort": 20,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/messagNotice",
-                "component": "",
-                "component_name": "messagNotice",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "563092a536194a1493551a0043f1f1a3",
-                "creator_id": "0",
-                "parent_id": None,
-                "icon": "Operation",
-                "name": "系统工具",
-                "sort": 80,
-                "type": 0,
-                "link_url": "",
-                "web_path": "/systemToolsMgDirs",
-                "component": "",
-                "component_name": "",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "6354ba32ae734b5eaa799a65f76deee6",
-                "creator_id": "0",
-                "parent_id": "563092a536194a1493551a0043f1f1a3",
-                "icon": "Setting",
-                "name": "系统设置",
-                "sort": 27,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/systemConfig",
-                "component": "",
-                "component_name": "systemConfig",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "8faec98030e443b99ce0d4c636163db7",
-                "creator_id": "0",
-                "parent_id": "af862854dc44410d84b8b2ae5c16c90d",
-                "icon": "Guide",
-                "name": "权限管理",
-                "sort": 120,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/authorityManage",
-                "component": "",
-                "component_name": "authorityManage",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "95227fe101e747908c12b56d2bae5e8e",
-                "creator_id": "0",
-                "parent_id": "af862854dc44410d84b8b2ae5c16c90d",
-                "icon": "OfficeBuilding",
-                "name": "部门管理",
-                "sort": 50,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/deptManage",
-                "component": "",
-                "component_name": "deptManage",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "98870fbaffb348ab9fd16a88e946bf09",
-                "creator_id": "0",
-                "parent_id": None,
-                "icon": "User",
-                "name": "个人中心",
-                "sort": 19,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/PersonalCenter",
-                "component": "",
-                "component_name": "PersonalCenter",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "9ece0330c65e40df8da00190107d908e",
-                "creator_id": "0",
-                "parent_id": "01599f73f61848aa811f687b1cfc1588",
-                "icon": "Link",
-                "name": "外链测试",
-                "sort": 60,
-                "type": 3,
-                "link_url": "https://doc.lee.cn",
-                "web_path": "/docdvlyadminlink",
-                "component": "",
-                "component_name": "",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "a8b435647f0b4a3f852ec796433e8919",
-                "creator_id": "0",
-                "parent_id": "af862854dc44410d84b8b2ae5c16c90d",
-                "icon": "AddLocation",
-                "name": "登录日志",
-                "sort": 230,
-                "type": 1,
-                "link_url": "",
-                "web_path": "/loginLogs",
-                "component": "",
-                "component_name": "loginLogs",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
-            {
-                "code": "af862854dc44410d84b8b2ae5c16c90d",
-                "creator_id": "0",
-                "parent_id": None,
-                "icon": "Setting",
-                "name": "系统管理",
-                "sort": 90,
-                "type": 0,
-                "link_url": "",
-                "web_path": "/dirsettingsDirs",
-                "component": "",
-                "component_name": "",
-                "status": True,
-                "isautopm": False,
-                "cache": False,
-                "visible": True,
-            },
+        """初始化已有功能的菜单；使用稳定 code、重复执行安全。
+
+        不预创建还没有页面与 API 的 Agent/工具/审批入口；
+        自定义菜单不在管理范围内，重跑不会清空它们。
+        """
+        print("====================== begin init menu ======================")
+        menu_definitions = [
+            {"code": "4a7a7748387f44dbab72027d8bdc87f7", "parent_code": None, "icon": "House", "name": "工作台", "sort": 10, "type": 1, "web_path": "/home", "component_name": "home"},
+            {"code": "44662b7fe6b54395994f28ed88eaf3f0", "parent_code": None, "icon": "Message", "name": "我的消息", "sort": 20, "type": 1, "web_path": "/myMessage", "component_name": "myMessage"},
+            {"code": "98870fbaffb348ab9fd16a88e946bf09", "parent_code": None, "icon": "User", "name": "个人中心", "sort": 30, "type": 1, "web_path": "/PersonalCenter", "component_name": "PersonalCenter"},
+            {"code": "af862854dc44410d84b8b2ae5c16c90d", "parent_code": None, "icon": "Setting", "name": "组织与权限", "sort": 60, "type": 0, "web_path": "/dirsettingsDirs", "component_name": ""},
+            {"code": "31552696153b42599ce1faf6fe495824", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "User", "name": "用户管理", "sort": 10, "type": 1, "web_path": "/buserManage", "component_name": "buserManage"},
+            {"code": "95227fe101e747908c12b56d2bae5e8e", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "OfficeBuilding", "name": "部门管理", "sort": 20, "type": 1, "web_path": "/deptManage", "component_name": "deptManage"},
+            {"code": "1b5018bdb5e04698b84da505e8a6b93c", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "UserFilled", "name": "角色管理", "sort": 30, "type": 1, "web_path": "/roleManage", "component_name": "roleManage"},
+            {"code": "2e9937b37ac94e248e9ed159bfe7b655", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "Menu", "name": "菜单管理", "sort": 40, "type": 1, "web_path": "/menuManage", "component_name": "menuManage"},
+            {"code": "8faec98030e443b99ce0d4c636163db7", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "Lock", "name": "权限管理", "sort": 50, "type": 1, "web_path": "/authorityManage", "component_name": "authorityManage"},
+            {"code": "24d2eb79a21141afbe73058cc02545e0", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "Document", "name": "操作日志", "sort": 60, "type": 1, "web_path": "/journalManage", "component_name": "journalManage"},
+            {"code": "a8b435647f0b4a3f852ec796433e8919", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "Tickets", "name": "登录日志", "sort": 70, "type": 1, "web_path": "/loginLogs", "component_name": "loginLogs"},
+            {"code": "563092a536194a1493551a0043f1f1a3", "parent_code": None, "icon": "Tools", "name": "系统配置", "sort": 70, "type": 0, "web_path": "/systemToolsMgDirs", "component_name": ""},
+            {"code": "6354ba32ae734b5eaa799a65f76deee6", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Setting", "name": "平台设置", "sort": 10, "type": 1, "web_path": "/systemConfig", "component_name": "systemConfig"},
+            {"code": "205910763e0e42fbbc12833d2f7d61bb", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Reading", "name": "数据字典", "sort": 20, "type": 1, "web_path": "/sysDictionary", "component_name": "sysDictionary"},
+            {"code": "4f947108c5bf44f2b97e4a80daebf772", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Bell", "name": "通知公告", "sort": 30, "type": 1, "web_path": "/messagNotice", "component_name": "messagNotice"},
         ]
-        cache_dict = {}
-        while True:
-            for it in self.menu_data:
-                key = it["code"]
-                if key not in cache_dict:
-                    parent_id = it["parent_id"]
-                    if parent_id and parent_id not in cache_dict:
-                        continue
-                    elif parent_id and parent_id in cache_dict:
-                        it["parent_id"] = cache_dict[parent_id]
-                    (obj, status) = Menu.objects.update_or_create(
-                        code=it["code"],
-                        defaults=it
-                    )
-                    cache_dict[key] = obj.id
-            if len(self.menu_data) == Menu.objects.all().count():
-                break
-        print('====================== end init menu ======================')
+
+        # Only remove the three known demo entries from the original template.
+        # The rest of the repository's custom/operational menu data is preserved.
+        legacy_demo_codes = (
+            "01599f73f61848aa811f687b1cfc1588",  # 功能演示
+            "150e0957200146b3bd0226c45e8031f7",  # iframe嵌套
+            "9ece0330c65e40df8da00190107d908e",  # 外链测试
+        )
+        Menu.objects.filter(code__in=legacy_demo_codes).delete()
+
+        saved_menus = {}
+        for item in menu_definitions:
+            parent_code = item["parent_code"]
+            parent = saved_menus.get(parent_code) if parent_code else None
+            if parent_code and parent is None:
+                raise RuntimeError(f"菜单父节点未初始化: {parent_code}")
+            defaults = {
+                "creator_id": "0",
+                "parent": parent,
+                "icon": item["icon"],
+                "name": item["name"],
+                "sort": item["sort"],
+                "type": item["type"],
+                "link_url": "",
+                "web_path": item["web_path"],
+                "component": "",
+                "component_name": item["component_name"],
+                "status": True,
+                "isautopm": False,
+                "cache": False,
+                "visible": True,
+            }
+            obj, _ = Menu.objects.update_or_create(
+                code=item["code"], defaults=defaults
+            )
+            saved_menus[item["code"]] = obj
+        print(f"====================== end init menu ({len(saved_menus)} entries) ======================")
 
     def init_menu_button(self):
         print('====================== begin init menu button ======================')
@@ -1063,73 +774,39 @@ class Initialize:
 
 
     def init_users(self):
-        print('====================== begin init user ======================')
-        do_insert = True
-        if self.delete:
-            Users.objects.all().delete()
+        """只创建一个超级管理员，不创建演示用户或使用固定密码。
+
+        对已存在用户不修改密码和角色，避免重跑初始化时重置账户。
+        可通过 INITIAL_SUPERUSER_PASSWORD 设定首次密码；未设定时
+        用户不可用密码登录，管理员需运行 manage.py changepassword SuperAdmin。
+        """
+        print("====================== begin init user ======================")
+        if Users.objects.filter(username="SuperAdmin").exists():
+            print("SuperAdmin 已存在，跳过账号和密码变更")
+            return
+
+        password = os.environ.get("INITIAL_SUPERUSER_PASSWORD")
+        if password:
+            from django.contrib.auth.password_validation import validate_password
+            validate_password(password)
+
+        user = Users(
+            username="SuperAdmin",
+            name="超级管理员",
+            nickname="超级管理员",
+            identity=0,
+            is_superuser=True,
+            is_staff=True,
+            is_active=True,
+        )
+        if password:
+            user.set_password(password)
         else:
-            if Users.objects.count() > 0:
-                print('init dictionary zero because Dictionary any data exist!')
-                do_insert = False
-        if do_insert:
-            from django.contrib.auth.hashers import make_password
-            """初始化用户表"""
-            data = [
-                {
-                    "password": "",
-                    "is_superuser": 1,
-                    "is_staff": 1,
-                    "identity": 0,
-                    "is_active": 1,
-                    "username": "SuperAdmin",
-                    "name": "超级管理员",
-                    "nickname": "超级管理员",
-                    "dept_id": "",
-                },
-                {
-                    "password": "",
-                    "is_superuser": 0,
-                    "is_staff": 1,
-                    "identity": 1,
-                    "gender": 2,
-                    "is_active": 1,
-                    "username": "admin",
-                    "name": "管理员",
-                    "nickname": "管理员",
-                    "role": ["admin"],
-                },
-                {
-                    "password": "",
-                    "is_superuser": 0,
-                    "is_staff": 0,
-                    "identity": 2,
-                    "is_active": 1,
-                    "username": "guest",
-                    "name": "游客",
-                    "mobile": "18888888888",
-                    "nickname": "游客",
-                    "dept_id": "",
-                    "role": [],
-                },
-            ]
-
-            # 将明文 '123456' 转换为哈希值
-            hashed_password = make_password('a123456')
-            for it in data:
-                roles = it.pop("role", []) or []
-                if roles:
-                    roles = Role.objects.filter(key__in=roles)
-                # dept 是 ManyToManyField，不能作为 update_or_create 的 defaults 直接传入
-                it.pop("dept_id", None)
-                it['password'] = hashed_password
-                (obj, status) = Users.objects.update_or_create(username=it["username"], defaults=it)
-
-                for role in roles:
-                    role.role_users.add(obj)
-            print('init user count', len(data))
-
-        print('====================== end init user ======================')
-
+            user.set_unusable_password()
+        user.save()
+        if not password:
+            print("未配置 INITIAL_SUPERUSER_PASSWORD，请执行 python manage.py changepassword SuperAdmin 设置初始密码")
+        print("====================== end init user ======================")
 
 
     def init_systemconfig(self):
@@ -1163,7 +840,7 @@ class Initialize:
                             "creator_id": "0",
                             "title": "logo",
                             "key": "logo",
-                            "value": "http://127.0.0.1:8000/media/platform/2025-07-08/20250708113144_688.png",
+                            "value": "",
                             "sort": 10,
                             "status": True,
                             "data_options": None,
@@ -1177,7 +854,7 @@ class Initialize:
                             "creator_id": "0",
                             "title": "登录验证码",
                             "key": "loginCaptcha",
-                            "value": "false",
+                            "value": "true",
                             "sort": 8,
                             "status": True,
                             "data_options": None,
@@ -1191,7 +868,7 @@ class Initialize:
                             "creator_id": "0",
                             "title": "系统标题",
                             "key": "systitle",
-                            "value": "lee-admin-template",
+                            "value": "Enterprise Agent Hub",
                             "sort": 5,
                             "status": True,
                             "data_options": None,
@@ -1347,19 +1024,16 @@ class Initialize:
 
 
     def run(self):
-        """执行初始化"""
-        try:
-            self.init_button()
-            self.init_menu()
-            self.init_menu_button()
-            self.init_dept()
-            self.init_role()
-            self.init_users()
-            self.init_systemconfig()
-            self.init_dictionary()
-            print("所有初始化完成!")
-        except Exception as e:
-            print(f"初始化过程中出错: {str(e)}")
+        """执行初始化；任何错误都中断事务并回滚。"""
+        self.init_button()
+        self.init_menu()
+        self.init_menu_button()
+        self.init_dept()
+        self.init_role()
+        self.init_users()
+        self.init_systemconfig()
+        self.init_dictionary()
+        print("所有初始化完成!")
 
 
 def main(is_delete=False):
