@@ -28,7 +28,8 @@ PyMySQL==1.1.1
 django-redis==5.4.0
 channels==4.2.2
 channels_redis==4.2.1
-redis==5.2.1
+# Celery 5.6 / Kombu requires redis-py >= 6.1 and < 6.5.
+redis==6.4.0
 
 # Background tasks / periodic jobs
 celery==5.6.3
