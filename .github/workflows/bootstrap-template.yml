@@ -42,8 +42,6 @@ jobs:
           mkdir -p backend frontend .github/workflows docs
           rsync -a --exclude='/static/' --exclude='/media/' --exclude='/logs/' --exclude='__pycache__/' --exclude='config.py' --exclude='db.sqlite3' .source-template/backend/ backend/
           rsync -a --exclude='node_modules/' --exclude='dist/' --exclude='.env' .source-template/frontend/ frontend/
-          cp .source-template/.github/workflows/ci.yml .github/workflows/ci.yml
-          cp .source-template/.github/workflows/dependency-audit.yml .github/workflows/dependency-audit.yml
           cp .source-template/.github/dependabot.yml .github/dependabot.yml
           cp .source-template/.github/pull_request_template.md .github/pull_request_template.md
           # Preserve the target repository's own .gitignore and append relevant template ignore rules.
@@ -69,7 +67,6 @@ jobs:
           Follow-up project work: define the Agent Runtime, tools gateway, approvals and execution audit as new Django apps.
           EOF
           rm -rf .source-template
-          rm .github/workflows/bootstrap-template.yml
           echo "App files to stage:"
           git status --short | head -60
 
@@ -109,11 +106,12 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- backend frontend .github .gitignore docs/BASELINE_IMPORT.md
+          # GitHub Actions token cannot create/modify workflows; import those separately via the authorized integration.
+          git add -A -- backend frontend .github/dependabot.yml .github/pull_request_template.md .gitignore docs/BASELINE_IMPORT.md
           # The base template ignores assets/ globally, but these frontend resources are source code.
           git add -f -A -- frontend/src/assets
           # Only check new migration metadata; the upstream template still has existing whitespace warnings.
-          git diff --cached --check -- docs/BASELINE_IMPORT.md .github/workflows
+          git diff --cached --check -- docs/BASELINE_IMPORT.md
           if git diff --cached --quiet; then
             echo "No scaffold changes to commit"
             exit 0
