@@ -37,6 +37,11 @@ REDIS_URL = f"redis://:{REDIS_PASSWORD or ''}@{REDIS_HOST}:{REDIS_PORT}"
 # Example: export DJANGO_SECRET_KEY="<unique-secret>" before starting Django.
 # Django Channels uses Redis by default; set USE_INMEMORY_CHANNEL_LAYER=1 for single-process local debugging.
 
+# Celery defaults to Redis DB 3 (broker) and DB 4 (results).
+# Override CELERY_BROKER_URL / CELERY_RESULT_BACKEND in the process environment.
+# CELERY_ENABLE_HEALTHCHECK_SCHEDULE=true enables an opt-in periodic DB probe.
+# Run only one beat scheduler process per deployment.
+
 # global log config
 API_LOG_ENABLE = True
 API_LOG_METHODS = ["POST", "UPDATE", "DELETE", "PUT"]  # ['POST', 'DELETE']
