@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 800" role="img" aria-label="Enterprise Agent Hub architecture">
+<style>text{font-family:Arial,"Noto Sans CJK SC",sans-serif;fill:#16304a}.title{font-size:27px;font-weight:bold}.layer{font-size:18px;font-weight:bold}.sub{font-size:14px;fill:#4d6277}.b{fill:#f4f8ff;stroke:#9bb8d5;stroke-width:2}.line{stroke:#5e87a7;stroke-width:2;fill:none;marker-end:url(#a)}</style>
+<defs><marker id="a" orient="auto" markerWidth="8" markerHeight="8" refX="7" refY="4"><path d="M0 0 L8 4 L0 8" fill="#5e87a7"/></marker></defs>
+<rect x="1" y="1" width="1098" height="798" rx="20" fill="#fff" stroke="#d5e1ed"/>
+<text x="550" y="45" text-anchor="middle" class="title">Enterprise Agent Hub / 企业级 Agent 执行与治理</text>
+<rect class="b" x="260" y="70" width="580" height="80" rx="12"/><text x="550" y="103" text-anchor="middle" class="layer">Web Console / FastAPI</text><text x="550" y="129" text-anchor="middle" class="sub">任务管理 · 审批 · 审计 · 可观测</text>
+<path class="line" d="M550 150V187"/>
+<rect class="b" x="260" y="188" width="580" height="75" rx="12"/><text x="550" y="219" text-anchor="middle" class="layer">Task Orchestrator / 持久化任务编排</text><text x="550" y="244" text-anchor="middle" class="sub">状态机 · 审批暂停 · 失败恢复</text>
+<path class="line" d="M550 263V298"/>
+<rect class="b" x="80" y="300" width="440" height="102" rx="12"/><text x="300" y="339" text-anchor="middle" class="layer">Agent Runtime</text><text x="300" y="369" text-anchor="middle" class="sub">意图理解 · Tool Calling · 结构化计划</text>
+<rect class="b" x="580" y="300" width="440" height="102" rx="12"/><text x="800" y="339" text-anchor="middle" class="layer">Governance Engine</text><text x="800" y="369" text-anchor="middle" class="sub">RBAC · 数据范围 · 风险规则 · 人工审批</text>
+<path class="line" d="M520 349H580"/>
+<path class="line" d="M800 402V435H550V468"/>
+<rect x="260" y="470" width="580" height="92" rx="12" fill="#eef8f2" stroke="#83b49c" stroke-width="2"/><text x="550" y="507" text-anchor="middle" class="layer">Business Tool Gateway</text><text x="550" y="535" text-anchor="middle" class="sub">Schema · 权限 · 幂等 · 业务版本复核 · 审计</text>
+<path class="line" d="M550 562V605"/>
+<rect class="b" x="110" y="608" width="250" height="82" rx="12"/><text x="235" y="645" text-anchor="middle" class="layer">ERP Connector</text><text x="235" y="668" text-anchor="middle" class="sub">应收 / 催收任务</text>
+<rect class="b" x="425" y="608" width="250" height="82" rx="12"/><text x="550" y="645" text-anchor="middle" class="layer">OA Connector</text><text x="550" y="668" text-anchor="middle" class="sub">审批 / 通知</text>
+<rect class="b" x="740" y="608" width="250" height="82" rx="12"/><text x="865" y="645" text-anchor="middle" class="layer">CRM Connector</text><text x="865" y="668" text-anchor="middle" class="sub">客户 / 跟进</text>
+<path class="line" d="M550 605H235V608"/><path class="line" d="M550 605V608"/><path class="line" d="M550 605H865V608"/>
+<rect x="110" y="720" width="880" height="50" rx="10" fill="#f0f2f5"/><text x="550" y="751" text-anchor="middle" class="sub">Cross-cutting: PostgreSQL · Audit Events · Outbox · Tracing · Evaluation</text>
+</svg>
