@@ -1,0 +1,119 @@
+name: Bootstrap from Lee Admin Template (one-time)
+
+on:
+  push:
+    paths:
+      - ".github/workflows/bootstrap-template.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-enterprise-agent-hub
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout destination repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+
+      - name: Checkout pinned Lee Admin Template source
+        uses: actions/checkout@v4
+        with:
+          repository: calvin-207/lee-admin-template
+          ref: 205f65de635b2561f239417915faccbb3fcb89ee
+          path: .source-template
+          persist-credentials: false
+
+      - name: Copy application code without changing project planning docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f README.md && test -f ROADMAP.md
+          test -f .source-template/backend/manage.py
+          test -f .source-template/frontend/package.json
+          mkdir -p backend frontend .github/workflows docs
+          rsync -a --exclude='/static/' --exclude='/media/' --exclude='/logs/' --exclude='__pycache__/' --exclude='config.py' --exclude='db.sqlite3' .source-template/backend/ backend/
+          rsync -a --exclude='node_modules/' --exclude='dist/' --exclude='.env' .source-template/frontend/ frontend/
+          cp .source-template/.github/workflows/ci.yml .github/workflows/ci.yml
+          cp .source-template/.github/workflows/dependency-audit.yml .github/workflows/dependency-audit.yml
+          cp .source-template/.github/dependabot.yml .github/dependabot.yml
+          cp .source-template/.github/pull_request_template.md .github/pull_request_template.md
+          # Preserve the target repository's own .gitignore and append relevant template ignore rules.
+          {
+            printf '\n# Imported Lee Admin Template ignore rules\n'
+            cat .source-template/.gitignore
+          } >> .gitignore
+          cat > docs/BASELINE_IMPORT.md <<'EOF'
+          # Enterprise Agent Hub application scaffold
+
+          Imported from [Lee Admin Template](https://github.com/calvin-207/lee-admin-template), pinned at commit `205f65de635b2561f239417915faccbb3fcb89ee`.
+
+          The backend and frontend application source, CI workflows, Dependabot and PR template were copied. Existing Enterprise Agent Hub README/ROADMAP/docs remain untouched.
+
+          Generated Django collected static files (`backend/static`), local databases, Redis dumps, runtime media, logs and environment secrets were excluded.
+
+          Setup:
+          - `cd backend && cp config.py_template config.py && pip install -r requirements.txt && python manage.py migrate`
+          - Configure your own database, Redis, SECRET_KEY/DEBUG/ALLOWED_HOSTS (no secrets committed).
+          - `cd frontend && npm install && npm run dev`
+          - Start Django ASGI with `daphne main.asgi:application` for WebSocket support.
+
+          Follow-up project work: define the Agent Runtime, tools gateway, approvals and execution audit as new Django apps.
+          EOF
+          rm -rf .source-template
+          rm .github/workflows/bootstrap-template.yml
+          echo "App files to stage:"
+          git status --short | head -60
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Django checks and tests
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -r requirements.txt
+          cp config.py_template config.py
+          python manage.py check --settings=test_settings
+          pytest -q
+          rm config.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Test and build frontend
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-package-lock --no-audit --no-fund
+          npm test
+          npm run build
+
+      - name: Commit the verified scaffold to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- backend frontend .github .gitignore docs/BASELINE_IMPORT.md
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No scaffold changes to commit"
+            exit 0
+          fi
+          git commit -m "feat: bootstrap Enterprise Agent Hub from verified Lee Admin Template"
+          git push origin HEAD:main
