@@ -215,6 +215,35 @@ LANGUAGE_CODE = "zh-Hans"
 
 TIME_ZONE = "Asia/Shanghai"
 
+# Celery: use Redis databases separate from Django caches (0-2).
+# Broker: DB 3. Results: DB 4. Both can be independently overridden.
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", f"{REDIS_URL}/3")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", f"{REDIS_URL}/4")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_SOFT_TIME_LIMIT = 270
+CELERY_TASK_TIME_LIMIT = 300
+CELERY_RESULT_EXPIRES = 86400
+# Beat is opt-in: run exactly one scheduler per deployment.
+CELERY_BEAT_SCHEDULE = (
+    {
+        "system-database-healthcheck": {
+            "task": "system.check_database",
+            "schedule": 900.0,
+        }
+    }
+    if os.environ.get("CELERY_ENABLE_HEALTHCHECK_SCHEDULE", "false").lower() == "true"
+    else {}
+)
+
+
 USE_I18N = True
 
 USE_L10N = True
