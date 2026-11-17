@@ -64,9 +64,16 @@ jobs:
           worker_pid=$!
           trap 'status=$?; if [ "$status" -ne 0 ]; then cat /tmp/eah-celery-worker.log; fi; kill "$worker_pid" 2>/dev/null || true; exit "$status"' EXIT
           python - <<'PY'
+          import os
           import time
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE", "main.settings")
+          import django
+          django.setup()
+          from main.celery import app as celery_app
           from system.tasks import ping
           from celery.exceptions import TimeoutError
+
+          assert celery_app.conf.task_default_queue == "default"
 
           for attempt in range(5):
               try:
