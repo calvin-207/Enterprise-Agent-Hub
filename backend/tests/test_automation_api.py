@@ -74,7 +74,7 @@ def test_execution_is_idempotent_and_retry_requires_failure(admin_user, django_c
 @pytest.mark.django_db
 def test_broker_failure_is_recorded(admin_user, django_capture_on_commit_callbacks):
     with patch("automation.services.execute_automation.apply_async", side_effect=ConnectionError("broker")):
-        with _commit_callbacks():
+        with django_capture_on_commit_callbacks(execute=True):
             execution = enqueue_execution(task_type="ping", user=admin_user)
     execution.refresh_from_db()
     assert execution.status == TaskExecution.Status.FAILED
