@@ -1,6 +1,8 @@
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
+from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated, PermissionDenied
+from rest_framework.views import exception_handler
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -18,6 +20,15 @@ class IsAutomationAdministrator(permissions.BasePermission):
 
 
 class AutomationView(APIView):
+    def handle_exception(self, exc):
+        # The legacy project exception handler wraps some authorization errors
+        # as HTTP 200; this administrative API must preserve 401/403 semantics.
+        if isinstance(exc, (AuthenticationFailed, NotAuthenticated, PermissionDenied)):
+            response = exception_handler(exc, self.get_exception_handler_context())
+            if response is not None:
+                return response
+        return super().handle_exception(exc)
+
     permission_classes = [permissions.IsAuthenticated, IsAutomationAdministrator]
 
     def get(self, request, execution_id=None):
@@ -51,7 +62,7 @@ class AutomationView(APIView):
     def post(self, request, execution_id=None):
         if execution_id is None:
             task_type = request.data.get("task_type")
-            if task_type not in TASK_TITLES:
+            if not isinstance(task_type, str) or task_type not in TASK_TITLES:
                 return Response({"code": 400, "msg": "仅支持预定义检测任务"},
                                 status=status.HTTP_400_BAD_REQUEST)
             execution = enqueue_execution(task_type=task_type, user=request.user)
