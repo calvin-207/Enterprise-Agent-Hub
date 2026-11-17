@@ -50,6 +50,9 @@ FastAPI, Python, OpenAI Agents SDK, PostgreSQL, SQLAlchemy, Redis, React, TypeSc
 
 ## Documents
 
+![Enterprise Agent Hub architecture](docs/architecture/architecture.svg)
+
+
 - [Product specification (V1)](docs/product/PRD-V1.md)
 - [Architecture design](docs/architecture/overview.md)
 - [Development roadmap](ROADMAP.md)
