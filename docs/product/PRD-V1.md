@@ -45,9 +45,10 @@
 | FR04 | Governance Engine | RBAC、组织数据范围、金额阈值 |
 | FR05 | Human Approval | 审批、拒绝、超时、计划版本约束 |
 | FR06 | ERP Connector | 模拟 ERP 应收查询和催收写入 |
-| FR07 | Console | 任务详情、审批、执行轨迹 |
+| FR07 | Vue Console | Vue 3 任务详情、审批、执行轨迹和实时进度 |
 | FR08 | Observability | Trace、成本、错误、评测和审计 |
-| FR09 | Deployment | Docker Compose、本地样例数据、CI |
+| FR09 | Deployment | Django ASGI、Celery、Redis、PostgreSQL、Vue 的 Docker Compose 部署、本地样例数据、CI |
+| FR10 | Realtime Messaging | Django Channels WebSocket 推送执行进度、Agent 流式事件与审批通知，支持重连后补查 |
 
 ## 5. 关键执行约束
 
@@ -92,14 +93,27 @@ GET    /api/v1/audit-events
 
 | 层 | 技术 |
 | --- | --- |
-| 前端 | React / TypeScript / Ant Design |
-| API | Python / FastAPI |
-| Agent | OpenAI Agents SDK |
-| 数据持久化 | PostgreSQL / SQLAlchemy / Alembic |
-| 缓存与后台任务 | Redis / Worker |
+| 前端 | Vue 3 / TypeScript / Vite / Pinia / Element Plus |
+| HTTP API | Python / Django / Django REST Framework |
+| 实时通信 | Django Channels / ASGI / WebSocket / channels_redis |
+| Agent | OpenAI Agents SDK，由 Celery Worker 调用 |
+| 数据持久化 | PostgreSQL / Django ORM / Django migrations |
+| 异步任务 | Celery + Redis，持久任务状态以 PostgreSQL 为准 |
 | 追踪 | OpenTelemetry |
-| 质量保障 | pytest、业务回归、Agent 评测 |
-| 部署 | Docker Compose |
+| 质量保障 | pytest / pytest-django、业务回归、Agent 评测 |
+| 部署 | Docker Compose + ASGI Server（Daphne） |
+
+## 9.1 Django Channels 实时通信
+
+- REST/DRF 承担任务创建、审批决策、状态查询等有明确请求响应的操作。
+- Django Channels 提供 `/ws/v1/tasks/{task_id}/` 和 `/ws/v1/notifications/` WebSocket 订阅。
+- WebSocket 事件包含 `type`、`event_id`、`task_id`、`sequence`、`timestamp`、`payload` 等字段；持久化事件可用于断线后补查。
+- 事件类型包含 `task.status_changed`、`task.step_progress`、`agent.delta`、`approval.requested`、`approval.decided`、`task.completed` 和 `task.failed`。
+- Worker 更新 PostgreSQL 中的权威状态，事务提交后经 Redis Channel Layer 推送事件；前端重连通过 REST 读取状态并去重合并。
+- 连接握手需要认证，订阅时严格检查任务访问权限；限制来源、连接数和消息速率。
+- **Channels 不负责后台任务可靠执行和任务持久化**，长任务交给 Celery，状态持久化在 PostgreSQL。
+
+参见 [实时通信架构](../architecture/realtime-communication.md)。
 
 ## 10. V1 不做
 
