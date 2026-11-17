@@ -51,3 +51,21 @@ def test_menu_buttons_reference_existing_initialized_menus():
     initializer.init_menu()
     initializer.init_menu_button()
     initializer.init_menu_button()
+
+
+@pytest.mark.django_db
+def test_platform_configuration_is_created_once_and_preserves_admin_changes():
+    from system.models import SystemConfig
+
+    initializer = Initialize()
+    initializer.init_systemconfig()
+    title = SystemConfig.objects.get(key="systitle")
+    assert title.value == "Enterprise Agent Hub"
+    title.value = "组织自定义标题"
+    title.save(update_fields=["value"])
+
+    initializer.init_systemconfig()
+    title.refresh_from_db()
+    assert title.value == "组织自定义标题"
+    assert SystemConfig.objects.filter(key="apiWhiteList").count() == 1
+    assert SystemConfig.objects.filter(key="loginCaptcha").count() == 1
