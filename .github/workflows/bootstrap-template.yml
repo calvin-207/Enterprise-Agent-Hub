@@ -110,7 +110,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A -- backend frontend .github .gitignore docs/BASELINE_IMPORT.md
-          git diff --cached --check
+          # The base template ignores assets/ globally, but these frontend resources are source code.
+          git add -f -A -- frontend/src/assets
+          # Only check new migration metadata; the upstream template still has existing whitespace warnings.
+          git diff --cached --check -- docs/BASELINE_IMPORT.md .github/workflows
           if git diff --cached --quiet; then
             echo "No scaffold changes to commit"
             exit 0
