@@ -17,7 +17,17 @@ jobs:
   backend:
     name: Backend / Django / pytest
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -44,6 +54,33 @@ jobs:
         run: |
           mkdir -p test-results
           pytest -q --junitxml=test-results/pytest.xml --cov=system --cov=utils --cov=apps --cov-report=xml:test-results/coverage.xml --cov-report=term-missing
+      - name: Celery Redis / worker integration smoke test
+        env:
+          CELERY_BROKER_URL: redis://127.0.0.1:6379/3
+          CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/4
+        run: |
+          set -euo pipefail
+          python -m celery -A main worker --pool=solo --concurrency=1 --loglevel=WARNING --without-gossip --without-mingle --without-heartbeat > /tmp/eah-celery-worker.log 2>&1 &
+          worker_pid=$!
+          trap 'status=$?; if [ "$status" -ne 0 ]; then cat /tmp/eah-celery-worker.log; fi; kill "$worker_pid" 2>/dev/null || true; exit "$status"' EXIT
+          python - <<'PY'
+          import time
+          from system.tasks import ping
+          from celery.exceptions import TimeoutError
+
+          for attempt in range(5):
+              try:
+                  result = ping.delay()
+                  payload = result.get(timeout=10)
+                  assert payload["status"] == "ok", payload
+                  assert payload["service"] == "enterprise-agent-hub", payload
+                  print("Celery worker / Redis broker / result backend OK:", result.id)
+                  break
+              except TimeoutError:
+                  if attempt == 4:
+                      raise
+                  time.sleep(2)
+          PY
       - name: Upload backend test reports
         if: always()
         uses: actions/upload-artifact@v4
