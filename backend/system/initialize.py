@@ -107,6 +107,7 @@ class Initialize:
         menu_definitions = [
             {"code": "4a7a7748387f44dbab72027d8bdc87f7", "parent_code": None, "icon": "House", "name": "工作台", "sort": 10, "type": 1, "web_path": "/home", "component_name": "home"},
             {"code": "44662b7fe6b54395994f28ed88eaf3f0", "parent_code": None, "icon": "Message", "name": "我的消息", "sort": 20, "type": 1, "web_path": "/myMessage", "component_name": "myMessage"},
+            {"code": "eah-automation-executions-v1", "parent_code": None, "icon": "Timer", "name": "自动化任务", "sort": 40, "type": 1, "web_path": "/taskExecutions", "component_name": "taskExecutions"},
             {"code": "98870fbaffb348ab9fd16a88e946bf09", "parent_code": None, "icon": "User", "name": "个人中心", "sort": 30, "type": 1, "web_path": "/PersonalCenter", "component_name": "PersonalCenter"},
             {"code": "af862854dc44410d84b8b2ae5c16c90d", "parent_code": None, "icon": "Setting", "name": "组织与权限", "sort": 60, "type": 0, "web_path": "/dirsettingsDirs", "component_name": ""},
             {"code": "31552696153b42599ce1faf6fe495824", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "User", "name": "用户管理", "sort": 10, "type": 1, "web_path": "/buserManage", "component_name": "buserManage"},
