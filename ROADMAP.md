@@ -4,6 +4,8 @@
 
 ## P0（第 1–2 周）— 最小闭环
 
+- Django / DRF + Django ORM 基础项目；Vue 3 + Vite + TypeScript 控制台
+- Django Channels + Redis Channel Layer 实时推送 Agent 和任务事件
 - 模拟 ERP 应收查询与催收任务接口
 - Agent 生成受约束的结构化执行计划
 - Tool Gateway 的 Schema / 数据权限校验
@@ -17,11 +19,12 @@
 - 状态机与持久化任务编排
 - 组织、角色、数据范围、策略版本
 - 风险审批、过期与重新校验
-- 任务中心 / 审批中心
+- 任务中心 / 审批中心；REST 操作 + WebSocket 状态推送
 
 ## P2（第 7–10 周）— 可靠性与可观测
 
-- 限定重试、超时、故障恢复、远端操作结果核对
+- Celery 后台执行、限定重试、超时、故障恢复、远端操作结果核对
+- Channels 断线重连和 REST 状态补查测试
 - Tracing、审计事件、成本与成功率指标
 - 故障注入、Agent 评测与回归测试
 
