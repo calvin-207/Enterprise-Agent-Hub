@@ -1,7 +1,7 @@
 # Python 3.11 recommended; Django 5.2 LTS receives security fixes through April 2028.
 # Keep core packages pinned; validate upgrades with backend CI before deployment.
 # Channels ASGI WebSocket: channels + daphne + channels_redis; Redis service required.
-# Celery / Agent SDK are intentionally not included until implemented in this template.
+# Agent SDK will be added when the Agent runtime is implemented.
 
 # ================================================= #
 # ************** Web 框架与服务 ************** #
@@ -29,6 +29,9 @@ django-redis==5.4.0
 channels==4.2.2
 channels_redis==4.2.1
 redis==5.2.1
+
+# Background tasks / periodic jobs
+celery==5.6.3
 
 # ================================================= #
 # ************** API 文档 ************** #
