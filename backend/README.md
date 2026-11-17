@@ -47,3 +47,15 @@ python manage.py runserver 127.0.0.1:8000
 daphne -b 0.0.0.0 -p 8000 --proxy-headers main.asgi:application
 
 ```
+
+## Celery 后台任务与定时调度
+
+项目已集成 Celery + Redis，需与 Django 服务**分别启动** Worker 和（按需）Beat：
+
+```bash
+celery -A main worker --loglevel=info --concurrency=2
+# 可选：在另外一个终端运行 Beat
+CELERY_ENABLE_HEALTHCHECK_SCHEDULE=true celery -A main beat --loglevel=info
+```
+
+使用 `python manage.py shell` 运行 `from system.tasks import ping; ping.delay()` 验证任务派发。详见 [Celery 配置、部署与任务开发说明](../docs/development/celery.md)。
