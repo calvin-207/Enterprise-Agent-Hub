@@ -17,7 +17,7 @@
 
     <h2>开始使用</h2>
     <el-row :gutter="16" class="hub-grid">
-      <el-col v-for="item in shortcuts" :key="item.path" :xs="24" :sm="12" :lg="8">
+      <el-col v-for="item in availableShortcuts" :key="item.path" :xs="24" :sm="12" :lg="8">
         <router-link :to="item.path" class="hub-link">
           <el-card shadow="hover" class="hub-card">
             <div class="hub-card-top">
@@ -36,6 +36,8 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
+import { useRouter } from "vue-router";
 import {
   ArrowRight,
   User,
@@ -46,6 +48,8 @@ import {
   Message,
 } from "@element-plus/icons-vue";
 
+const router = useRouter();
+
 const shortcuts = [
   { title: "用户管理", description: "维护平台账户、登录状态和人员信息", path: "/buserManage", icon: User },
   { title: "部门管理", description: "维护组织结构及数据归属", path: "/deptManage", icon: OfficeBuilding },
@@ -53,7 +57,14 @@ const shortcuts = [
   { title: "平台设置", description: "配置平台名称及常用系统参数", path: "/systemConfig", icon: Setting },
   { title: "操作日志", description: "审查后台操作记录和行为轨迹", path: "/journalManage", icon: Document },
   { title: "我的消息", description: "查看系统通知与个人消息", path: "/myMessage", icon: Message },
-];
+ ];
+
+// Backend-authorized menu routes are dynamically registered after login.
+// Avoid advertising shortcuts which the current user cannot open.
+const availableShortcuts = computed(() => {
+  const paths = new Set(router.getRoutes().map((route) => route.path));
+  return shortcuts.filter((item) => paths.has(item.path));
+});
 </script>
 
 <style scoped>
