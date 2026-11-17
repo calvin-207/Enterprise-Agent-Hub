@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "drf_spectacular_sidecar",
     "captcha",
     "system",
+    "automation",
     "apps.leemessages",
     "apps.leediy"
 ]
