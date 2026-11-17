@@ -6,8 +6,12 @@
 
 ```mermaid
 flowchart TB
-    USER[用户 / 管理控制台] --> API[FastAPI API]
-    API --> TASK[Task Orchestrator 任务状态机]
+    USER[Vue 3 管理控制台] --> API[Django REST Framework]
+    USER <-->|WebSocket| CHANNELS[Django Channels / ASGI]
+    CHANNELS <--> REDIS[Redis Channel Layer]
+    API --> CELERY[Celery Worker]
+    CELERY --> TASK[Task Orchestrator 任务状态机]
+    CELERY --> REDIS
     TASK --> AGENT[Agent Runtime Adapter]
     AGENT --> PLAN[结构化执行计划]
     PLAN --> POLICY[Governance / RBAC / 数据范围 / 策略]
@@ -28,7 +32,10 @@ flowchart TB
 
 | 模块 | 职责 |
 | --- | --- |
-| API / React Console | 身份、任务提交、审批和运行监控 |
+| Vue 3 Console | 任务、审批、执行进度与运行监控 |
+| Django / DRF | 身份认证、REST 操作、资源权限和查询 |
+| Django Channels | WebSocket 连接、按任务授权订阅和实时事件推送 |
+| Celery Worker | 长时间 Agent 执行、重试和后台任务调度 |
 | Task Orchestrator | 任务持久化、合法状态迁移、超时与恢复 |
 | Agent Runtime | 模型 / Tool 调用、生成结构化计划，不直接落库 |
 | Governance Engine | RBAC、数据权限、金额阈值、审批策略 |
@@ -51,4 +58,12 @@ flowchart TB
 - 不将密钥及敏感客户信息写入可公开 Tracing
 - 所有演示数据必须为虚构数据
 
-详见 [产品说明书](../product/PRD-V1.md)。
+## 通讯边界
+
+- 命令与强一致的查询使用 DRF HTTP API。
+- 实时任务状态、Token 增量和审批通知通过 Django Channels WebSocket 推送。
+- `channels_redis` 提供跨 ASGI 实例和 Worker 的临时事件分发；不能代替任务状态存储。
+- Celery Worker 执行 Agent/Connector 长任务；PostgreSQL 管理权威状态与持久化业务事件。
+- WebSocket 断线后从 REST 补查并按事件 ID / sequence 去重。
+
+详见 [实时通讯设计](realtime-communication.md) 和 [产品说明书](../product/PRD-V1.md)。
