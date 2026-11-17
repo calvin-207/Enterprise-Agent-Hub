@@ -1,5 +1,7 @@
 # Enterprise Agent Hub
 
+**[English](README.md) | [简体中文](README.zh-CN.md)**
+
 > Enterprise AI Agent Execution & Governance Platform | 企业级 AI Agent 业务执行与治理平台
 
 **Status:** Documentation-first V1.0 design. Implementation has not started.
@@ -12,8 +14,12 @@ Enterprise Agent Hub is an open-source, self-hosted execution and governance lay
 
 ```mermaid
 flowchart TB
-  USER[Business User] --> API[FastAPI API / React Console]
+  USER[Business User] --> API[Django REST Framework / Vue 3 Console]
+  USER <-->|WebSocket| CHANNELS[Django Channels / ASGI]
+  CHANNELS <--> REDIS[Redis Channel Layer]
   API --> TASK[Task Orchestrator / State Machine]
+  TASK --> WORKER[Celery Worker]
+  WORKER --> REDIS
   TASK --> AGENT[Agent Runtime / SDK Adapter]
   AGENT --> PLAN[Structured Action Plan]
   PLAN --> POLICY[Policy Engine / RBAC / Data Scope]
@@ -46,7 +52,9 @@ Flow: authenticated request → authorized data access → Agent plan → determ
 
 ## Tech Stack (Proposed)
 
-FastAPI, Python, OpenAI Agents SDK, PostgreSQL, SQLAlchemy, Redis, React, TypeScript, Docker Compose, pytest, OpenTelemetry.
+Python, Django, Django REST Framework, Django Channels (ASGI / WebSocket), channels_redis, Celery, PostgreSQL, Django ORM, Redis, Vue 3, TypeScript, Vite, Pinia, Element Plus, OpenAI Agents SDK, Docker Compose, pytest-django, OpenTelemetry.
+
+**Messaging boundary:** REST for commands, approval decisions and authoritative queries; Django Channels WebSocket for progress, streaming events and notifications. Celery executes long-running tasks. PostgreSQL stores durable state; Redis messages are transient.
 
 ## Documents
 
@@ -55,6 +63,7 @@ FastAPI, Python, OpenAI Agents SDK, PostgreSQL, SQLAlchemy, Redis, React, TypeSc
 
 - [Product specification (V1)](docs/product/PRD-V1.md)
 - [Architecture design](docs/architecture/overview.md)
+- [Django Channels realtime messaging](docs/architecture/realtime-communication.md)
 - [Development roadmap](ROADMAP.md)
 
 ## Scope
