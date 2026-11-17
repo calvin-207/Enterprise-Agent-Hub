@@ -810,102 +810,47 @@ class Initialize:
 
 
     def init_systemconfig(self):
-        print('====================== init system config ======================')
-        do_insert = True
-        if self.delete:
-            SystemConfig.objects.filter(parent__isnull=False).delete()
-            SystemConfig.objects.filter(parent__isnull=True).delete()
-        else:
-            if SystemConfig.objects.all().count() == 0:
-                print('system config already initialized, because SystemConfig any data exist!')
-                do_insert = False
+        """补齐基础配置；重复初始化不会覆盖管理员已经修改的设置。"""
+        print("====================== begin init system config ======================")
+        base, _ = SystemConfig.objects.get_or_create(
+            key="base",
+            defaults={
+                "creator_id": "0", "title": "基础配置",
+                "sort": 0, "status": True, "form_item_type": 0,
+            },
+        )
+        children = [
+            {
+                "key": "logo", "title": "平台 Logo", "value": "",
+                "sort": 10, "form_item_type": 7,
+            },
+            {
+                "key": "loginCaptcha", "title": "登录验证码", "value": "true",
+                "sort": 8, "form_item_type": 9,
+                "tip": "登录验证码开启/关闭",
+            },
+            {
+                "key": "systitle", "title": "系统标题",
+                "value": "Enterprise Agent Hub", "sort": 5,
+                "form_item_type": 0, "placeholder": "请输入系统标题",
+            },
+        ]
+        for item in children:
+            key = item.pop("key")
+            SystemConfig.objects.get_or_create(
+                key=key, parent=base,
+                defaults={"creator_id": "0", "status": True, **item},
+            )
 
-        if do_insert:
-            data = [
-                {
-                    "creator_id": "0",
-                    "title": "基础配置",
-                    "key": "base",
-                    "value": None,
-                    "sort": 0,
-                    "status": True,
-                    "data_options": None,
-                    "form_item_type": 0,
-                    "rule": None,
-                    "placeholder": None,
-                    "tip": None,
-                    "setting": None,
-                    "childrens": [
-                        {
-                            "creator_id": "0",
-                            "title": "logo",
-                            "key": "logo",
-                            "value": "",
-                            "sort": 10,
-                            "status": True,
-                            "data_options": None,
-                            "form_item_type": 7,
-                            "rule": None,
-                            "placeholder": None,
-                            "tip": None,
-                            "setting": None,
-                        },
-                        {
-                            "creator_id": "0",
-                            "title": "登录验证码",
-                            "key": "loginCaptcha",
-                            "value": "true",
-                            "sort": 8,
-                            "status": True,
-                            "data_options": None,
-                            "form_item_type": 9,
-                            "rule": None,
-                            "placeholder": None,
-                            "tip": "登录验证码开启/关闭",
-                            "setting": None,
-                        },
-                        {
-                            "creator_id": "0",
-                            "title": "系统标题",
-                            "key": "systitle",
-                            "value": "Enterprise Agent Hub",
-                            "sort": 5,
-                            "status": True,
-                            "data_options": None,
-                            "form_item_type": 0,
-                            "rule": None,
-                            "placeholder": "请输入系统标题",
-                            "tip": None,
-                            "setting": None,
-                        },
-                    ],
-                },
-                {
-                    "creator_id": "0",
-                    "parent_id": None,
-                    "title": "Api白名单",
-                    "key": "apiWhiteList",
-                    "value": "[]",
-                    "sort": 0,
-                    "status": True,
-                    "data_options": None,
-                    "form_item_type": 0,
-                    "rule": None,
-                    "placeholder": None,
-                    "tip": None,
-                    "setting": None,
-                },
-            ]
-            for it in data:
-                childrens = it.pop("childrens", []) or []
-                (obj, status) = SystemConfig.objects.update_or_create(key=it["key"], defaults=it)
-                for cit in childrens:
-                    cit['parent'] = obj
-                    (child_obj, status) = SystemConfig.objects.update_or_create(key=cit["key"], parent_id=obj.id, defaults=cit)
-        print('init system config count:', len(data))
-
-
-        print('====================== end system config ======================')
+        SystemConfig.objects.get_or_create(
+            key="apiWhiteList",
+            defaults={
+                "creator_id": "0", "title": "API 白名单",
+                "value": "[]", "sort": 0, "status": True,
+                "form_item_type": 0,
+            },
+        )
+        print("====================== end init system config ======================")
 
     def init_dictionary(self):
         print('====================== begin init dictionary ======================')
