@@ -96,17 +96,19 @@ def test_worker_claim_and_terminal_are_idempotent(client_user, ready_agent):
 
     execute_agent_run.apply(args=[run_id], throw=True)
     record.refresh_from_db()
-    assert record.status == AgentRun.Status.FAILED
-    assert record.error_code == "RUNTIME_NOT_IMPLEMENTED"
+    assert record.status == AgentRun.Status.SUCCEEDED
+    assert record.error_code == ""
     assert record.status_version == 3
-    assert list(record.events.values_list("sequence", flat=True)) == [1, 2, 3]
-    assert list(record.steps.values_list("sequence", flat=True)) == [1]
-    assert record.steps.get().status == "FAILED"
+    assert record.result["mock"] is True
+    assert record.result["evidence"] == ["synthetic:mock_sales_summary"]
+    assert list(record.events.values_list("sequence", flat=True)) == [1, 2, 3, 4, 5]
+    assert list(record.steps.values_list("sequence", flat=True)) == [1, 2, 3]
+    assert list(record.steps.values_list("kind", flat=True)) == ["DISPATCH", "TOOL_READ", "MODEL_CALL"]
 
     execute_agent_run.apply(args=[run_id], throw=True)
     record.refresh_from_db()
     assert record.status_version == 3
-    assert record.events.count() == 3
+    assert record.events.count() == 5
 
 
 @pytest.mark.django_db
