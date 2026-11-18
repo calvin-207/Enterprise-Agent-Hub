@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from django.db import IntegrityError, transaction
 from django.db.models import Max, F
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from agent_catalog.models import Agent, AgentVersion
@@ -70,6 +71,30 @@ def start_run(*, actor, agent, payload, idempotency_key, deadline_seconds=120):
 
     try:
         with transaction.atomic():
+            # Serializes admission for one user; ensures concurrency and daily cap
+            # cannot be bypassed by simultaneous HTTP requests on PostgreSQL.
+            get_user_model().objects.select_for_update().get(pk=actor.pk)
+            duplicate = AgentRun.objects.filter(
+                requested_by=actor, idempotency_key=idempotency_key
+            ).first()
+            if duplicate:
+                if duplicate.input_digest != digest:
+                    raise RunRejected("相同幂等键不能用于不同请求", 409, "IDEMPOTENCY_CONFLICT")
+                return duplicate, False
+            active = AgentRun.objects.filter(
+                requested_by=actor, status__in=(
+                    AgentRun.Status.QUEUED, AgentRun.Status.RUNNING,
+                    AgentRun.Status.CANCEL_REQUESTED,
+                ),
+            ).count()
+            if active >= 3:
+                raise RunRejected("并发任务已达到上限（3）", 429, "CONCURRENCY_LIMIT")
+            recent = AgentRun.objects.filter(
+                requested_by=actor,
+                created_at__gte=timezone.now() - timedelta(hours=24),
+            ).count()
+            if recent >= 100:
+                raise RunRejected("24 小时任务配额已用完", 429, "DAILY_RUN_LIMIT")
             run = AgentRun.objects.create(
                 agent=agent, version=version, requested_by=actor,
                 input=payload, input_digest=digest, idempotency_key=idempotency_key,
