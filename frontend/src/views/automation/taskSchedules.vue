@@ -135,7 +135,7 @@
         </el-row>
         <div class="cron-preview">
           <strong>Cron：</strong><code>{{ cronText(scheduleForm) }}</code>
-          <span>时区 Asia/Shanghai · 星期：0=周日、1=周一、7=周日</span>
+          <span>时区 Asia/Shanghai · 星期：0=周日、1=周一、6=周六</span>
         </div>
         <el-form-item label="启用此计划">
           <el-switch v-model="scheduleForm.enabled" />
