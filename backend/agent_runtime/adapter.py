@@ -1,7 +1,5 @@
 """Provider adapters. Mock is deterministic/offline; OpenAI SDK is opt-in."""
-import os
-
-from tool_gateway.executor import invoke_read_tool
+from model_gateway.secrets import resolve_secret
 
 
 class ModelUnavailable(Exception):
@@ -41,9 +39,11 @@ class OpenAIAgentsAdapter:
     def run(self, *, version, actor, message, on_tool, check_budget):
         if version.model_profile.provider.adapter_type != "openai":
             raise ModelUnavailable("未启用受信任的 OpenAI Provider")
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise ModelUnavailable("Worker 缺少 OPENAI_API_KEY")
-        from agents import Agent as SDKAgent, Runner, RunConfig, function_tool
+        provider_config = version.model_profile.provider
+        key = resolve_secret(provider_config.secret_ref or "env:OPENAI_API_KEY")
+        if not key:
+            raise ModelUnavailable("Worker 缺少当前 Provider 的密钥")
+        from agents import Agent as SDKAgent, Runner, RunConfig, OpenAIProvider, function_tool
 
         @function_tool
         def mock_sales_summary(month: str = "2026-10") -> str:
@@ -63,14 +63,19 @@ class OpenAIAgentsAdapter:
         # SDK tracing defaults to transmitting model/tool content; disable it here.
         result = Runner.run_sync(
             agent, message, max_turns=4,
-            run_config=RunConfig(tracing_disabled=True),
+            run_config=RunConfig(tracing_disabled=True, model_provider=OpenAIProvider(api_key=key)),
         )
         check_budget()
         answer = result.final_output
         if not isinstance(answer, str) or not answer.strip():
             raise InvalidModelOutput("模型没有返回有效文本")
+        usage = getattr(getattr(result, "context_wrapper", None), "usage", None)
+        def valid_count(field):
+            n = getattr(usage, field, None)
+            return n if type(n) is int and 0 <= n <= 10**9 else None
         return {"answer": answer[:12000], "mock": False, "evidence": ["synthetic:mock_sales_summary"],
-                "usage": {"input_tokens": None, "output_tokens": None}}
+                "usage": {"input_tokens": valid_count("input_tokens"),
+                          "output_tokens": valid_count("output_tokens")}}
 
 
 def make_adapter(version):
