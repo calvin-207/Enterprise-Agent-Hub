@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "captcha",
     "system",
     "automation",
+    "django_celery_beat",
     "apps.leemessages",
     "apps.leediy"
 ]
@@ -225,6 +226,8 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_ENABLE_UTC = True
+# Enable persisted schedules; run exactly one Beat with this database scheduler.
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
