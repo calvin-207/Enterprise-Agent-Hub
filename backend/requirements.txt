@@ -1,7 +1,7 @@
 # Python 3.11 recommended; Django 5.2 LTS receives security fixes through April 2028.
 # Keep core packages pinned; validate upgrades with backend CI before deployment.
 # Channels ASGI WebSocket: channels + daphne + channels_redis; Redis service required.
-# Agent SDK will be added when the Agent runtime is implemented.
+# P1-C: OpenAI Agents SDK is isolated behind a runtime adapter; mock CI requires no API key.
 
 # ================================================= #
 # ************** Web 框架与服务 ************** #
@@ -33,6 +33,7 @@ redis==6.4.0
 
 # Background tasks / periodic jobs
 celery==5.6.3
+openai-agents==0.24.0
 # Database-backed Cron/Beat schedules (Django 5.2 compatible)
 django-celery-beat==2.9.0
 
