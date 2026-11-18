@@ -47,7 +47,7 @@ jobs:
       - name: Configure test environment
         run: cp config.py_template config.py
       - name: Python syntax check
-        run: python -m compileall -q main system utils apps automation agents agent_runtime model_gateway tool_gateway tests
+        run: python -m compileall -q main system utils apps automation agent_catalog agent_runtime model_gateway tool_gateway tests
       - name: Django system checks
         run: python manage.py check --settings=test_settings
       - name: Verify model migrations are committed
