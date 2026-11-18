@@ -4,7 +4,7 @@
 
 > Enterprise AI Agent Execution & Governance Platform | 企业级 AI Agent 业务执行与治理平台
 
-**Status:** Documentation-first V1.0 design. Implementation has not started.
+**Status:** 基础管理系统及 Automation V2 已实现；Agent Runtime / Tool Gateway / Governance 处于设计阶段（截至 2026-11-18）。
 
 Enterprise Agent Hub is an open-source, self-hosted execution and governance layer for AI agents working with existing enterprise ERP, OA and CRM systems.
 
@@ -58,6 +58,9 @@ Python, Django, Django REST Framework, Django Channels (ASGI / WebSocket), chann
 
 ## Documents
 
+- **[平台层架构设计 V1（核心入口）](docs/platform-architecture/README.md)** — 总体架构、模块边界、领域模型、API、状态机、权限治理与 Codex 任务
+- [现有 Celery 与数据库定时计划 V2](docs/development/automation-scheduler.md)
+
 ![Enterprise Agent Hub architecture](docs/architecture/architecture.svg)
 
 
@@ -70,4 +73,4 @@ Python, Django, Django REST Framework, Django Channels (ASGI / WebSocket), chann
 
 V1 intentionally excludes building a complete ERP, drag-and-drop workflow builder, unrestricted autonomous writes, large-scale multitenancy and Kubernetes.
 
-This repository is currently **a product and architecture specification**, not a working product. Contributions and feedback are welcome. License to be decided after dependency and intellectual-property review.
+**Implemented baseline:** Django/DRF/Vue administration, existing user/role/menu management, Celery Worker, Redis, database-backed Cron scheduler, automation task execution API and front-end. **Not yet implemented:** the planned Agent Runtime, Model/Tool Gateway, business approval and full governance. Read the [platform architecture design](docs/platform-architecture/README.md) before implementing these modules. Contributions and feedback are welcome. License to be decided after dependency and intellectual-property review.
