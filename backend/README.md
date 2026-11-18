@@ -64,3 +64,7 @@ celery -A main beat --scheduler django_celery_beat.schedulers:DatabaseScheduler 
 ## P2-B 持久会话与执行事件流
 
 后台新增“Agent 会话”（`/agentChat`）管理页面，支持连续追问、历史消息、上下文和 SSE RunEvent 状态订阅。消息仅会话所有者可访问。首次升级请执行 `python manage.py migrate` 和 `python manage.py init`，确保 Celery Worker 及 Outbox Dispatcher 持续运行。当前 SSE 是执行状态事件，不是模型 Token 逐字流。详见 [P2-B 部署与验收文档](../docs/platform-architecture/12-p2b-session-and-event-stream.md)。
+
+## AI 模型管理和同步模型
+
+模型管理位于「系统配置 → AI 模型管理」。管理员可设置 OpenAI / OpenAI 兼容 Provider、启用和价格；新增“同步模型”调用供应商 GET /v1/models，将返回的模型 ID 创建为**默认未启用**的本地记录，随后选择启用、价格和默认模型；重复同步不覆盖已有配置。后台录入 API Key 采用 Fernet 加密存储且查询接口不回显，需部署独立 EAH_MODEL_ENCRYPTION_KEY。兼容供应商主机须配置 EAH_MODEL_ALLOWED_HOSTS 白名单及出网安全规则；或继续使用 env:KEY 引用方式。部署与安全说明见 [模型管理与同步文档](../docs/platform-architecture/13-model-sync-management.md)。
