@@ -63,3 +63,8 @@ class AgentAccessSerializer(serializers.ModelSerializer):
         model = AgentAccessGrant
         fields = ("id", "agent", "user", "capability", "created_at")
         read_only_fields = ("id", "created_at")
+
+    def validate_capability(self, value):
+        if value != AgentAccessGrant.Capability.RUN:
+            raise serializers.ValidationError("P1-A 仅开放 Agent 运行授权，管理权限由超级管理员控制")
+        return value
