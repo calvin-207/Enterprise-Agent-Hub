@@ -4,6 +4,7 @@ import json
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
+from django.db.models import Max
 from django.utils import timezone
 
 from agents.models import Agent, AgentVersion
@@ -95,6 +96,7 @@ def claim_run(run_id, lease_token, lease_seconds=120):
 
 
 def finish_run(run_id, lease_token, *, status, error_code="", result=None):
+    """Close a claimed run once; append terminal event after all SDK/tool events."""
     if status not in (AgentRun.Status.SUCCEEDED, AgentRun.Status.FAILED):
         raise ValueError("Invalid terminal status")
     with transaction.atomic():
@@ -110,8 +112,9 @@ def finish_run(run_id, lease_token, *, status, error_code="", result=None):
                 status="SUCCEEDED" if status == AgentRun.Status.SUCCEEDED else "FAILED",
                 details={"error_code": error_code} if error_code else {"dispatch": "accepted"},
             )
+            last_sequence = run.events.aggregate(last=Max("sequence"))["last"] or 0
             RunEvent.objects.create(
-                run=run, sequence=3,
+                run=run, sequence=last_sequence + 1,
                 kind="run.completed" if status == AgentRun.Status.SUCCEEDED else "run.failed",
                 payload={"status": status, "error_code": error_code},
             )
