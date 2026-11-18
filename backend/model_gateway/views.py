@@ -1,6 +1,7 @@
 """Superuser-only model/provider configuration. Secrets are NEVER accepted or returned."""
 from decimal import Decimal, InvalidOperation
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
+from django.core.exceptions import ImproperlyConfigured
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from agent_catalog.views import PlatformAPI
@@ -8,8 +9,10 @@ from agent_catalog.services import is_platform_admin
 from rest_framework.exceptions import PermissionDenied
 from model_gateway.models import ModelProvider, ModelProfile
 from model_gateway.secrets import validate_secret_ref
+from model_gateway.credentials import encrypt_api_key
+from model_gateway.discovery import sync_models, ModelSyncError, safe_base_url
 
-ALLOWED_PROVIDER_TYPES = {"mock", "openai"}
+ALLOWED_PROVIDER_TYPES = {"mock", "openai", "openai_compatible"}
 
 
 def ok(data, status=200):
@@ -23,7 +26,9 @@ def bad(message, status=400):
 def provider_view(obj):
     return {"id": obj.pk, "code": obj.code, "name": obj.name,
             "adapter_type": obj.adapter_type, "secret_ref": obj.secret_ref,
-            "enabled": obj.enabled, "created_at": obj.created_at}
+            "enabled": obj.enabled, "base_url": obj.base_url,
+            "has_stored_key": bool(obj.encrypted_api_key), "last_sync_at": obj.last_sync_at,
+            "created_at": obj.created_at}
 
 
 def profile_view(obj):
@@ -31,7 +36,9 @@ def profile_view(obj):
             "model_code": obj.model_code, "enabled": obj.enabled,
             "input_price_per_million": str(obj.input_price_per_million),
             "output_price_per_million": str(obj.output_price_per_million),
-            "max_output_tokens": obj.max_output_tokens}
+            "max_output_tokens": obj.max_output_tokens,
+            "is_default": obj.is_default, "source": obj.source,
+            "last_seen_at": obj.last_seen_at}
 
 
 def check_admin(request):
@@ -62,7 +69,7 @@ class ProviderConfigAPI(PlatformAPI):
 
     def _save(self, request, instance):
         data = request.data
-        fields = ("code", "name", "adapter_type", "secret_ref", "enabled")
+        fields = ("code", "name", "adapter_type", "secret_ref", "enabled", "base_url", "api_key", "clear_api_key")
         if not check_keys(data, fields):
             return bad("不支持此字段；禁止传入 API Key、URL 或其他敏感参数")
         kind = data.get("adapter_type", instance.adapter_type if instance else None)
@@ -70,6 +77,9 @@ class ProviderConfigAPI(PlatformAPI):
         name = data.get("name", instance.name if instance else "")
         ref = data.get("secret_ref", instance.secret_ref if instance else "")
         enabled = data.get("enabled", instance.enabled if instance else False)
+        base_url = data.get("base_url", instance.base_url if instance else "")
+        api_key = data.get("api_key")
+        clear_api_key = data.get("clear_api_key", False)
         from django.core.validators import validate_slug
         from django.core.exceptions import ValidationError
         try:
