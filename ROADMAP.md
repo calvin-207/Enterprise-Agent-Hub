@@ -1,6 +1,6 @@
 # Roadmap / Enterprise Agent Hub 开发路线图
 
-> 更新时间：2026-11-18。当前**已实现**基础系统（Django/DRF/Vue、用户角色菜单）与 Automation V2（Celery、Redis、django-celery-beat、自动化任务与 Cron 管理页面）；Agent Runtime 执行引擎、Tool Gateway 实际工具调用、Governance 和 Workflow **尚未实现**；P1-A 的 Agent/模型/只读工具目录及版本配置已实现。
+> 更新时间：2026-11-18。当前**已实现**基础系统（Django/DRF/Vue、用户角色菜单）与 Automation V2（Celery、Redis、django-celery-beat、自动化任务与 Cron 管理页面）；Agent Runtime P1-C 的 Mock 模型、只读 Tool Gateway 及执行追踪已实现；真实 OpenAI SDK Adapter 已接入但尚需真实密钥/模型联调。治理审批、业务写操作和 Workflow **尚未实现**。
 >
 > **架构基线**：[docs/platform-architecture/README.md](docs/platform-architecture/README.md)；**Codex 任务与验收**：[06-codex-delivery-plan.md](docs/platform-architecture/06-codex-delivery-plan.md)。
 
@@ -12,7 +12,14 @@
 - django-celery-beat 的数据库 Cron 计划、任务定义、启停、立即触发及 UI
 - 现有 CI 的 pytest、Vitest、Vite 构建、Migration 检查
 
-## 2026-11-18 P1-A 进展\n\n- 已新增 `agents`、`model_gateway`、`tool_gateway` 三个最小模块及迁移；`model_gateway` 和 `tool_gateway` **目前仅是配置目录，不包含真实模型/工具执行**。\n- 已新增 Agent 草稿、不可变发布版本、用户运行授权、工具授权撤销 API 和 Agent 管理前端页面。\n- 模拟目录由 `python manage.py bootstrap_mock_catalog` 显式创建；仍需 P1-B/P1-C 才能实际运行 Agent。\n- [P1-A 交付与首次使用说明](docs/platform-architecture/08-p1a-implementation.md)。\n\n## 平台优先建设顺序
+## 2026-11-18 P1-A 进展\n\n- 已新增 `agent_catalog`（Django 标签保留 agents）、`model_gateway`、`tool_gateway` 三个最小模块及迁移；`model_gateway` 和 `tool_gateway` **目前仅是配置目录，不包含真实模型/工具执行**。\n- 已新增 Agent 草稿、不可变发布版本、用户运行授权、工具授权撤销 API 和 Agent 管理前端页面。\n- 模拟目录由 `python manage.py bootstrap_mock_catalog` 显式创建；P1-C 已可通过 Mock 模式运行 Agent。\n- [P1-A 交付与首次使用说明](docs/platform-architecture/08-p1a-implementation.md)。\n\n## P1-B / P1-C 实施进度
+
+- P1-B：AgentRun、RunStep、RunEvent、DispatchOutbox、可靠派发和状态机已提交。
+- P1-C：已接入 OpenAI Agents SDK 适配器、离线 Mock Agent Loop、每次鉴权的只读 Tool Gateway、任务结果与执行轨迹，新增 Agent 执行前端页面。
+- 完整说明：[P1-B](docs/platform-architecture/09-p1b-implementation.md) · [P1-C](docs/platform-architecture/10-p1c-runtime-implementation.md)。
+- **尚未完成：** 实际付费模型联调、真实 Token/费用计量、工作流、业务写操作审批与多步恢复。
+
+## 平台优先建设顺序
 
 | 阶段 | 实施内容 | 交付与验收 |
 | --- | --- | --- |
