@@ -58,7 +58,7 @@ class OpenAIAgentsAdapter:
             name=version.agent.name,
             instructions=version.system_prompt + "\n只允许使用提供的只读工具。严禁声称模拟数据是真实经营数据。",
             model=version.model_profile.model_code,
-            model_settings=ModelSettings(max_tokens=version.model_profile.max_output_tokens),
+            model_settings=ModelSettings(max_tokens=version.model_profile.max_output_tokens, parallel_tool_calls=False, timeout=60.0),
             tools=[mock_sales_summary],
         )
         # SDK tracing defaults to transmitting model/tool content; disable it here.
