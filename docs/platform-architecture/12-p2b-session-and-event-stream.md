@@ -61,7 +61,7 @@ data: {"sequence":3,"type":"run.step_completed","payload":{"step":2,"kind":"TOOL
 
 前端使用 `fetch` + ReadableStream 发送 JWT，而非原生不支持自定义 Authorization Header 的 `EventSource`；SSE 不可用时回退到 REST `events/?after=`，最终通过 Run 详情确认完成并从会话消息 API 重新获取答案。**SSE 只是低延迟通知，数据库查询才是最终权威。**
 
-提示：当前 Django 的同步流式响应使用短时轮询数据库实现，适合低并发验收；面向高并发生产环境应升级为 ASGI 异步 SSE 或 Channels 消息唤醒、增加反向代理连接/缓存参数、监控长连接占用。
+当前 Django 使用 **ASGI 异步 SSE 生成器** 和短时数据库轮询，避免 Daphne 将同步迭代器缓冲至连接结束。高并发生产环境仍应升级为 Channels/Redis 消息唤醒或专用事件总线、配置反向代理连接/缓存参数并监控长连接占用。
 
 ## 4. 页面
 
