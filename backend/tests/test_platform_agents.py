@@ -4,8 +4,8 @@ from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from rest_framework.test import APIClient
 
-from agents.models import Agent, AgentVersion, ToolGrant
-from agents.services import allowed_tool_ids, is_granted
+from agent_catalog.models import Agent, AgentVersion, ToolGrant
+from agent_catalog.services import allowed_tool_ids, is_granted
 from model_gateway.models import ModelProfile
 from tool_gateway.models import ToolDefinition
 
