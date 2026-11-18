@@ -33,6 +33,8 @@ redis==6.4.0
 
 # Background tasks / periodic jobs
 celery==5.6.3
+# Database-backed Cron/Beat schedules (Django 5.2 compatible)
+django-celery-beat==2.9.0
 
 # ================================================= #
 # ************** API 文档 ************** #
