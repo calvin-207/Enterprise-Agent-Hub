@@ -185,6 +185,18 @@ async function saveProfile() {
   } catch (e) { ElMessage.error(e?.message || "保存失败"); }
   finally { saving.value = false; }
 }
+async function syncModels(provider) {
+  syncingId.value = provider.id;
+  try {
+    const response = await syncProviderModels(provider.id);
+    if (response.code !== 2000) throw new Error(response.msg || "同步失败");
+    ElMessage.success("已同步 " + response.data.total + " 个模型，新增 " + response.data.created + " 个，已存在 " + response.data.existing + " 个");
+    tab.value = "profiles";
+    await reload();
+  } catch (error) {
+    ElMessage.error(error?.message || "同步失败，请检查供应商凭据和接口");
+  } finally { syncingId.value = null; }
+}
 onMounted(reload);
 </script>
 
