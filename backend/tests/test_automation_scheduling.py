@@ -164,3 +164,22 @@ def test_missing_and_disabled_schedules_do_not_run(api, definition):
     plan = TaskSchedule.objects.get(pk=response.data["data"]["id"])
     trigger_schedule.apply(args=[plan.pk], throw=True)
     assert TaskExecution.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_database_scheduler_discovers_saved_enabled_plan(api, definition):
+    """Beat must actually load persisted entries, not merely store rows."""
+    from django_celery_beat.schedulers import DatabaseScheduler
+    from main.celery import app as celery_app
+
+    result = api.post("/api/automation/schedules/", {
+        "name": "Beat 可发现计划", "definition": definition.pk,
+        "minute": "*", "hour": "*", "enabled": True,
+    }, format="json")
+    assert result.status_code == 201
+    plan = TaskSchedule.objects.get(pk=result.data["data"]["id"])
+    scheduler = DatabaseScheduler(app=celery_app)
+    entry = scheduler.schedule[f"enterprise-agent-hub:automation:{plan.pk}"]
+    assert entry.task == "automation.trigger_schedule"
+    assert entry.args == [plan.pk]
+    assert entry.model.enabled is True
