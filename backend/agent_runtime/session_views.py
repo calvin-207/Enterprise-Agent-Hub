@@ -1,6 +1,7 @@
 """Owner-isolated conversations. Archived conversations are read-only."""
 from uuid import UUID
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from agent_catalog.models import Agent
@@ -55,8 +56,9 @@ class SessionDetailAPI(PlatformAPI):
     def get(self, request, session_id):
         return ok(session_data(get_object_or_404(owner_sessions(request.user), pk=session_id)))
 
+    @transaction.atomic
     def patch(self, request, session_id):
-        session = get_object_or_404(owner_sessions(request.user), pk=session_id)
+        session = get_object_or_404(owner_sessions(request.user).select_for_update(), pk=session_id)
         if session.archived:
             return bad("会话已归档，不能修改", 409)
         allowed = {"title", "archived"}
