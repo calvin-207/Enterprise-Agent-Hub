@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "model_gateway",
     "tool_gateway",
     "agents",
+    "agent_runtime",
     "django_celery_beat",
     "apps.leemessages",
     "apps.leediy"
