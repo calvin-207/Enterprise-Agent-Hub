@@ -76,6 +76,7 @@ class DispatchOutbox(models.Model):
         PENDING = "PENDING", "待派发"
         SENDING = "SENDING", "正在派发"
         SENT = "SENT", "已派发"
+        CANCELLED = "CANCELLED", "已取消"
 
     run = models.OneToOneField(AgentRun, on_delete=models.CASCADE, related_name="outbox")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True)
