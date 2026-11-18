@@ -58,9 +58,20 @@
             <el-option value="mock" label="Mock（离线测试）"/>
           </el-select>
         </el-form-item>
-        <el-form-item label="密钥引用（只允许 env:...）">
+        <el-form-item v-if="providerForm.adapter_type === 'openai_compatible'" label="API Base URL">
+          <el-input v-model.trim="providerForm.base_url" placeholder="https://trusted.provider.example/v1"/>
+          <small>域名需由运维预先添加至 EAH_MODEL_ALLOWED_HOSTS。</small>
+        </el-form-item>
+        <el-form-item label="密钥引用（env:...，可选）">
           <el-input v-model.trim="providerForm.secret_ref" :disabled="providerForm.adapter_type === 'mock'"
             placeholder="env:EAH_MODEL_KEY_MAIN 或 env:OPENAI_API_KEY"/>
+        </el-form-item>
+        <el-form-item v-if="providerForm.adapter_type !== 'mock'" label="API Key（可选，写入时加密）">
+          <el-input v-model="providerForm.api_key" type="password" show-password autocomplete="new-password" placeholder="留空保留已有密钥"/>
+          <small>{{ editProvider?.has_stored_key ? "已安全存储密钥，留空不会修改" : "服务器需配置 EAH_MODEL_ENCRYPTION_KEY" }}</small>
+        </el-form-item>
+        <el-form-item v-if="editProvider?.has_stored_key" label="清除已存密钥">
+          <el-switch v-model="providerForm.clear_api_key"/>
         </el-form-item>
         <el-form-item label="启用"><el-switch v-model="providerForm.enabled"/></el-form-item>
       </el-form>
@@ -81,6 +92,7 @@
           <el-col :span="12"><el-form-item label="输出价格（USD/百万 Token）"><el-input v-model="profileForm.output_price_per_million"/></el-form-item></el-col>
         </el-row>
         <el-form-item label="最大输出 Token"><el-input-number v-model="profileForm.max_output_tokens" :min="1" :max="16384" style="width:100%"/></el-form-item>
+        <el-form-item label="设为平台默认模型"><el-switch v-model="profileForm.is_default" :disabled="!profileForm.enabled"/></el-form-item>
         <el-form-item label="启用"><el-switch v-model="profileForm.enabled"/></el-form-item>
       </el-form>
       <el-alert type="info" :closable="false" title="价格由管理员维护，仅用于费用估算，实际费用以模型供应商账单为准。"/>
