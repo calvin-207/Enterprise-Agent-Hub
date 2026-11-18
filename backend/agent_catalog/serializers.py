@@ -47,7 +47,7 @@ class ModelProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ModelProfile
-        fields = ("id", "name", "model_code", "enabled", "provider", "provider_code")
+        fields = ("id", "name", "model_code", "enabled", "is_default", "provider", "provider_code")
         read_only_fields = fields
 
 
