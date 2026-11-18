@@ -20,7 +20,8 @@ def bad(message, code=400):
 
 
 def session_data(s):
-    return {"id": str(s.pk), "agent_id": str(s.agent_id), "title": s.title,
+    active = s.runs.filter(status__in=("QUEUED", "RUNNING", "CANCEL_REQUESTED")).order_by("-created_at").first()
+    return {"active_run_id": str(active.pk) if active else None, "id": str(s.pk), "agent_id": str(s.agent_id), "title": s.title,
             "archived": s.archived, "created_at": s.created_at, "updated_at": s.updated_at}
 
 
