@@ -12,10 +12,13 @@ def save_usage(run, version, usage):
 
     input_tokens, output_tokens = count("input_tokens"), count("output_tokens")
     estimated_cost = None
+    from_run = run.version_snapshot
+    in_price = Decimal(str(from_run.get("input_price_per_million", profile.input_price_per_million)))
+    out_price = Decimal(str(from_run.get("output_price_per_million", profile.output_price_per_million)))
     if input_tokens is not None and output_tokens is not None:
         cost = (
-            Decimal(input_tokens) * profile.input_price_per_million
-            + Decimal(output_tokens) * profile.output_price_per_million
+            Decimal(input_tokens) * in_price
+            + Decimal(output_tokens) * out_price
         ) / Decimal(1000000)
         estimated_cost = cost.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP)
     return ModelUsage.objects.update_or_create(
@@ -25,7 +28,7 @@ def save_usage(run, version, usage):
             "model_code": profile.model_code,
             "input_tokens": input_tokens, "output_tokens": output_tokens,
             "estimated_cost": estimated_cost,
-            "input_price_per_million": profile.input_price_per_million,
-            "output_price_per_million": profile.output_price_per_million,
+            "input_price_per_million": in_price,
+            "output_price_per_million": out_price,
         },
     )[0]
