@@ -149,6 +149,8 @@ def test_duplicate_beat_trigger_only_creates_one_execution(api, definition, djan
     response = api.post(f"/api/automation/schedules/{plan.pk}/run/")
     assert response.status_code == 202
     assert TaskExecution.objects.filter(schedule=plan).count() == 2
+    # POST detail must not silently launch a task; only /run/ is allowed.
+    assert api.post(f"/api/automation/schedules/{plan.pk}/").status_code == 405
 
 
 @pytest.mark.django_db
