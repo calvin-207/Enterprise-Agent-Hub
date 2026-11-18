@@ -210,6 +210,7 @@ function ajax(opt, method) {
       method: method,
       headers: {
         Authorization: sysConfig.TOKEN_PREFIX + token,
+        ...(opt.headers || {}),
       },
     };
     method === "GET" && (config1.params = params);
