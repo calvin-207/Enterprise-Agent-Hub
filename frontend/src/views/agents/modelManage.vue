@@ -2,14 +2,14 @@
   <div class="models-page">
     <header class="header">
       <div><p class="eyebrow">ENTERPRISE AGENT HUB / MODEL GATEWAY</p>
-        <h1>模型配置</h1>
-        <p class="description">安全管理 Provider、模型与估算单价。密钥只保存在 Worker 环境变量中，平台不会接收明文 API Key。</p>
+        <h1>AI 模型管理</h1>
+        <p class="description">添加供应商、同步模型目录，再手动配置启停、单价及默认模型。API Key 可使用环境变量引用或加密保存。</p>
       </div>
       <el-button :icon="Refresh" :loading="loading" @click="reload">刷新</el-button>
     </header>
     <el-alert type="warning" show-icon :closable="false" class="alert"
-      title="生产模型不会自动验证密钥或产生真实账单"
-      description="管理员配置环境变量引用后，必须在 Celery Worker 容器中注入相应密钥，完成一次受控的真实模型联调。" />
+      title="同步模型只导入供应商返回的模型 ID，并不代表模型已通过推理验证"
+      description="新同步模型默认未启用；同步不会覆盖已有模型的名称、价格、默认标记及启停状态。请手工核对模型能力与费用。" />
     <el-tabs v-model="tab">
       <el-tab-pane name="providers" label="模型提供商">
         <div class="toolbar"><strong>Provider 列表</strong><el-button type="primary" :icon="Plus" @click="openProvider()">新增 Provider</el-button></div>
@@ -23,7 +23,11 @@
           <el-table-column label="启用状态" width="95">
             <template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template>
           </el-table-column>
-          <el-table-column label="操作" width="85"><template #default="{ row }"><el-button link type="primary" @click="openProvider(row)">编辑</el-button></template></el-table-column>
+          <el-table-column label="同步时间" min-width="165"><template #default="{ row }">{{ row.last_sync_at ? new Date(row.last_sync_at).toLocaleString("zh-CN") : "未同步" }}</template></el-table-column>
+          <el-table-column label="操作" width="180"><template #default="{ row }">
+            <el-button link type="primary" @click="openProvider(row)">编辑</el-button>
+            <el-button link type="success" :loading="syncingId === row.id" :disabled="!row.enabled" @click="syncModels(row)">同步模型</el-button>
+          </template></el-table-column>
         </el-table>
       </el-tab-pane>
       <el-tab-pane name="profiles" label="模型列表与价格">
@@ -35,6 +39,8 @@
           <el-table-column label="输入 / 100 万 Token" min-width="150"><template #default="{ row }">{{ row.input_price_per_million }} USD</template></el-table-column>
           <el-table-column label="输出 / 100 万 Token" min-width="150"><template #default="{ row }">{{ row.output_price_per_million }} USD</template></el-table-column>
           <el-table-column prop="max_output_tokens" label="单次输出上限" width="120"/>
+          <el-table-column label="默认" width="75"><template #default="{ row }"><el-tag v-if="row.is_default" type="success">默认</el-tag><span v-else>—</span></template></el-table-column>
+          <el-table-column label="来源" width="80"><template #default="{ row }">{{ row.source === 'sync' ? '同步' : '手动' }}</template></el-table-column>
           <el-table-column label="状态" width="80"><template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template></el-table-column>
           <el-table-column label="操作" width="85"><template #default="{ row }"><el-button link type="primary" @click="openProfile(row)">编辑</el-button></template></el-table-column>
         </el-table>
@@ -46,7 +52,11 @@
         <el-form-item label="唯一标识" required><el-input v-model.trim="providerForm.code" maxlength="64" :disabled="!!editProvider" placeholder="例如 openai-primary"/></el-form-item>
         <el-form-item label="名称" required><el-input v-model.trim="providerForm.name" maxlength="120"/></el-form-item>
         <el-form-item label="适配类型">
-          <el-select v-model="providerForm.adapter_type" style="width:100%"><el-option value="openai" label="OpenAI Agents SDK"/><el-option value="mock" label="Mock（离线测试）"/></el-select>
+          <el-select v-model="providerForm.adapter_type" style="width:100%">
+            <el-option value="openai" label="OpenAI 官方"/>
+            <el-option value="openai_compatible" label="OpenAI 兼容接口（域名白名单）"/>
+            <el-option value="mock" label="Mock（离线测试）"/>
+          </el-select>
         </el-form-item>
         <el-form-item label="密钥引用（只允许 env:...）">
           <el-input v-model.trim="providerForm.secret_ref" :disabled="providerForm.adapter_type === 'mock'"
@@ -83,13 +93,14 @@
 import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus, Refresh } from "@element-plus/icons-vue";
-import { listProviders, createProvider, updateProvider, listProfiles, createProfile, updateProfile } from "./api";
+import { listProviders, createProvider, updateProvider, listProfiles, createProfile, updateProfile, syncProviderModels } from "./api";
 
 const tab = ref("providers");
 const providers = ref([]);
 const profiles = ref([]);
 const loading = ref(false);
 const saving = ref(false);
+const syncingId = ref(null);
 const showProvider = ref(false);
 const showProfile = ref(false);
 const editProvider = ref(null);
@@ -112,8 +123,8 @@ function openProvider(item = null) {
   editProvider.value = item;
   providerForm.value = item ? {
     code: item.code, name: item.name, adapter_type: item.adapter_type,
-    secret_ref: item.secret_ref, enabled: item.enabled,
-  } : { code: "", name: "", adapter_type: "openai", secret_ref: "", enabled: false };
+    secret_ref: item.secret_ref, enabled: item.enabled, base_url: item.base_url || "", api_key: "", clear_api_key: false,
+  } : { code: "", name: "", adapter_type: "openai", secret_ref: "", base_url: "", api_key: "", clear_api_key: false, enabled: false };
   showProvider.value = true;
 }
 function openProfile(item = null) {
@@ -122,11 +133,11 @@ function openProfile(item = null) {
     provider: item.provider, name: item.name, model_code: item.model_code,
     input_price_per_million: item.input_price_per_million,
     output_price_per_million: item.output_price_per_million,
-    max_output_tokens: item.max_output_tokens, enabled: item.enabled,
+    max_output_tokens: item.max_output_tokens, enabled: item.enabled, is_default: item.is_default,
   } : {
     provider: providers.value[0]?.id ?? null, name: "", model_code: "",
     input_price_per_million: "0.000000", output_price_per_million: "0.000000",
-    max_output_tokens: 1024, enabled: false,
+    max_output_tokens: 1024, enabled: false, is_default: false,
   };
   showProfile.value = true;
 }
@@ -135,7 +146,10 @@ async function saveProvider() {
   saving.value = true;
   try {
     const data = { ...providerForm.value };
-    if (data.adapter_type === "mock") data.secret_ref = "";
+    if (data.adapter_type === "mock") { data.secret_ref = ""; data.base_url = ""; }
+    if (data.adapter_type === "openai") data.base_url = "";
+    if (!data.api_key) delete data.api_key;
+    if (!data.clear_api_key) delete data.clear_api_key;
     const result = editProvider.value
       ? await updateProvider(editProvider.value.id, data) : await createProvider(data);
     if (result.code !== 2000) throw new Error(result.msg || "保存失败");
