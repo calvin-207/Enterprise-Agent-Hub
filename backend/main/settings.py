@@ -59,6 +59,9 @@ INSTALLED_APPS = [
     "captcha",
     "system",
     "automation",
+    "model_gateway",
+    "tool_gateway",
+    "agents",
     "django_celery_beat",
     "apps.leemessages",
     "apps.leediy"
