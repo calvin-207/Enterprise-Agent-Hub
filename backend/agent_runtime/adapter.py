@@ -43,7 +43,7 @@ class OpenAIAgentsAdapter:
         key = resolve_secret(provider_config.secret_ref or "env:OPENAI_API_KEY")
         if not key:
             raise ModelUnavailable("Worker 缺少当前 Provider 的密钥")
-        from agents import Agent as SDKAgent, Runner, RunConfig, OpenAIProvider, function_tool
+        from agents import Agent as SDKAgent, Runner, RunConfig, OpenAIProvider, ModelSettings, function_tool
 
         @function_tool
         def mock_sales_summary(month: str = "2026-10") -> str:
@@ -58,6 +58,7 @@ class OpenAIAgentsAdapter:
             name=version.agent.name,
             instructions=version.system_prompt + "\n只允许使用提供的只读工具。严禁声称模拟数据是真实经营数据。",
             model=version.model_profile.model_code,
+            model_settings=ModelSettings(max_tokens=version.model_profile.max_output_tokens),
             tools=[mock_sales_summary],
         )
         # SDK tracing defaults to transmitting model/tool content; disable it here.
