@@ -3,9 +3,9 @@ from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
-from agents.models import Agent, AgentVersion
-from agents.services import is_granted, is_platform_admin
-from agents.views import PlatformAPI
+from agent_catalog.models import Agent, AgentVersion
+from agent_catalog.services import is_granted, is_platform_admin
+from agent_catalog.views import PlatformAPI
 from agent_runtime.models import AgentRun
 from agent_runtime.services import RunRejected, start_run
 
