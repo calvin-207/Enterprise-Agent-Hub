@@ -33,6 +33,9 @@ def snapshot_for(version, actor):
         "prompt_sha256": hashlib.sha256(version.system_prompt.encode("utf-8")).hexdigest(),
         "model_profile_id": version.model_profile_id,
         "model_code": version.model_profile.model_code,
+        "input_price_per_million": str(version.model_profile.input_price_per_million),
+        "output_price_per_million": str(version.model_profile.output_price_per_million),
+        "max_output_tokens": version.model_profile.max_output_tokens,
         "tool_ids": allowed_tool_ids(version, actor),
     }
 
