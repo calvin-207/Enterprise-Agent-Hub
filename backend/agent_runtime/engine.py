@@ -9,7 +9,7 @@ from agent_runtime.adapter import make_adapter, RunBudgetExceeded, ModelUnavaila
 from model_gateway.models import ModelProfile
 from agent_runtime.accounting import save_usage
 from agent_runtime.services import RunCancelled
-from agent_runtime.models import AgentRun, RunEvent, RunStep
+from agent_runtime.models import AgentRun, RunEvent, RunStep, AgentMessage
 from agent_runtime.services import finish_run
 from tool_gateway.executor import invoke_read_tool
 
@@ -48,6 +48,15 @@ def perform_run(run_id, lease):
     if not message or len(message) > 4000:
         raise ValueError("输入消息为空或超过 4000 字符")
     calls = 0
+    history = []
+    if run.session_id:
+        # Only fully completed prior turns may enter context; never include
+        # another queued or failed user message, nor the current run.
+        prior = list(AgentMessage.objects.filter(
+            session_id=run.session_id, run__status=AgentRun.Status.SUCCEEDED,
+        ).exclude(run_id=run.id).order_by("-id")[:12])
+        history = [{"role": msg.role, "content": msg.content[:4000]}
+                   for msg in reversed(prior)]
 
     def check_budget():
         current = AgentRun.objects.only("status", "lease_token", "deadline_at").get(pk=run_id)
@@ -77,7 +86,7 @@ def perform_run(run_id, lease):
     check_budget()
     adapter = make_adapter(version)
     result = adapter.run(version=version, actor=actor, message=message,
-                         on_tool=on_tool, check_budget=check_budget)
+                         on_tool=on_tool, check_budget=check_budget, history=history)
     check_budget()
     if not isinstance(result, dict) or not isinstance(result.get("answer"), str):
         raise ValueError("模型返回无效的结果")
