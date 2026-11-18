@@ -147,7 +147,7 @@ class ModelProfileConfigAPI(PlatformAPI):
 
     def _save(self, request, instance):
         data = request.data
-        allowed = ("provider", "name", "model_code", "enabled",
+        allowed = ("provider", "name", "model_code", "enabled", "is_default",
                    "input_price_per_million", "output_price_per_million", "max_output_tokens")
         if not check_keys(data, allowed):
             return bad("不支持的模型参数")
@@ -159,8 +159,13 @@ class ModelProfileConfigAPI(PlatformAPI):
         name = data.get("name", instance.name if instance else "")
         code = data.get("model_code", instance.model_code if instance else "")
         enabled = data.get("enabled", instance.enabled if instance else False)
-        if not isinstance(name, str) or not 1 <= len(name) <= 120 or not isinstance(code, str) or not 1 <= len(code) <= 120 or not isinstance(enabled, bool):
+        is_default = data.get("is_default", instance.is_default if instance else False)
+        if (not isinstance(name, str) or not 1 <= len(name) <= 120 or
+            not isinstance(code, str) or not 1 <= len(code) <= 120 or
+            not isinstance(enabled, bool) or not isinstance(is_default, bool)):
             return bad("模型名称、标识或状态不合法")
+        if is_default and (not enabled or not provider.enabled):
+            return bad("只有已启用的模型才能设为默认")
         prices = []
         try:
             for field in ("input_price_per_million", "output_price_per_million"):
@@ -174,11 +179,27 @@ class ModelProfileConfigAPI(PlatformAPI):
         except (ValueError, InvalidOperation, TypeError):
             return bad("价格或最大输出 Token 数不合法")
         try:
-            obj = instance or ModelProfile()
-            obj.provider, obj.name, obj.model_code, obj.enabled = provider, name, code, enabled
-            obj.input_price_per_million, obj.output_price_per_million = prices
-            obj.max_output_tokens = max_tokens
-            obj.save()
+            with transaction.atomic():
+                if is_default:
+                    # Existing default may be replaced as an explicit admin choice.
+                    ModelProfile.objects.filter(is_default=True).update(is_default=False)
+                obj = instance or ModelProfile()
+                obj.provider, obj.name, obj.model_code, obj.enabled = provider, name, code, enabled
+                obj.input_price_per_million, obj.output_price_per_million = prices
+                obj.max_output_tokens = max_tokens
+                obj.is_default = is_default
+                obj.save()
         except IntegrityError:
             return bad("同一 Provider 下模型标识重复", 409)
         return ok(profile_view(obj), 200 if instance else 201)
+
+
+class ProviderSyncAPI(PlatformAPI):
+    """Explicit admin-triggered sync; all newly discovered profiles remain disabled."""
+    def post(self, request, provider_id):
+        check_admin(request)
+        provider = get_object_or_404(ModelProvider, pk=provider_id)
+        try:
+            return ok(sync_models(provider))
+        except ModelSyncError as exc:
+            return bad(str(exc), exc.status)
