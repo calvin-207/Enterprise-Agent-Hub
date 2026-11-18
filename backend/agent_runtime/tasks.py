@@ -27,6 +27,7 @@ def execute_agent_run(run_id):
             "ToolDenied": "TOOL_PERMISSION_DENIED",
             "ToolInputError": "TOOL_INVALID_INPUT",
             "RunBudgetExceeded": "RUN_BUDGET_EXCEEDED",
+            "RunCancelled": "RUN_CANCELLED",
             "ModelUnavailable": "MODEL_UNAVAILABLE",
             "InvalidModelOutput": "MODEL_OUTPUT_INVALID",
             "ValueError": "INVALID_INPUT",
