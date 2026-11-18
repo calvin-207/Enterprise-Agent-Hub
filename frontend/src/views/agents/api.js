@@ -27,3 +27,13 @@ export const createRun = (data, idempotencyKey) =>
 export const getRun = (id) => ajaxGet({ url: `${base}runs/${id}/` });
 export const getRunSteps = (id) => ajaxGet({ url: `${base}runs/${id}/steps/` });
 export const getRunEvents = (id) => ajaxGet({ url: `${base}runs/${id}/events/` });
+
+export const cancelRun = (id) => ajaxPost({ url: `${base}runs/${id}/cancel/`, params: {} });
+export const getRunUsage = (id) => ajaxGet({ url: `${base}runs/${id}/usage/` });
+
+export const listProviders = () => ajaxGet({ url: `${base}model-providers/` });
+export const createProvider = (params) => ajaxPost({ url: `${base}model-providers/`, params });
+export const updateProvider = (id, params) => ajaxPatch({ url: `${base}model-providers/${id}/`, params });
+export const listProfiles = () => ajaxGet({ url: `${base}model-profiles/` });
+export const createProfile = (params) => ajaxPost({ url: `${base}model-profiles/`, params });
+export const updateProfile = (id, params) => ajaxPatch({ url: `${base}model-profiles/${id}/`, params });
