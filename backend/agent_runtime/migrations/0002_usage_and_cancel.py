@@ -12,6 +12,13 @@ class Migration(migrations.Migration):
                 ("SUCCEEDED", "成功"), ("FAILED", "失败"), ("CANCELLED", "已取消"),
             ], db_index=True, default="QUEUED", max_length=16),
         ),
+        migrations.AlterField(
+            "dispatchoutbox", "status",
+            models.CharField(choices=[
+                ("PENDING", "待派发"), ("SENDING", "正在派发"),
+                ("SENT", "已派发"), ("CANCELLED", "已取消"),
+            ], db_index=True, default="PENDING", max_length=12),
+        ),
         migrations.CreateModel(
             name="ModelUsage",
             fields=[
