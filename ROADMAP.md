@@ -1,42 +1,38 @@
-# Roadmap / 开发路线图
+# Roadmap / Enterprise Agent Hub 开发路线图
 
-> 规划内容，尚未实现。
+> 更新时间：2026-11-18。当前**已实现**基础系统（Django/DRF/Vue、用户角色菜单）与 Automation V2（Celery、Redis、django-celery-beat、自动化任务与 Cron 管理页面）；Agent Runtime、Tool Gateway、Governance 和 Workflow **尚未实现**。
+>
+> **架构基线**：[docs/platform-architecture/README.md](docs/platform-architecture/README.md)；**Codex 任务与验收**：[06-codex-delivery-plan.md](docs/platform-architecture/06-codex-delivery-plan.md)。
 
-## P0（第 1–2 周）— 最小闭环
+## 已完成基座（截至 2026-11-18）
 
-- Django / DRF + Django ORM 基础项目；Vue 3 + Vite + TypeScript 控制台
-- Django Channels + Redis Channel Layer 实时推送 Agent 和任务事件
-- 模拟 ERP 应收查询与催收任务接口
-- Agent 生成受约束的结构化执行计划
-- Tool Gateway 的 Schema / 数据权限校验
-- 超过 10 万元的单笔操作要求人工审批
-- 业务写入幂等、操作审计与测试案例
+- Django 5.2 / DRF、Vue 3 / Vite、已有用户、角色、部门、菜单管理
+- Celery + Redis Worker 运行链路和 CI 联调
+- 自动化任务执行记录、管理员页面与任务状态
+- django-celery-beat 的数据库 Cron 计划、任务定义、启停、立即触发及 UI
+- 现有 CI 的 pytest、Vitest、Vite 构建、Migration 检查
 
-**验收：** 正常执行、越权拒绝、审批恢复、重复操作不重复写入。
+## 平台优先建设顺序
 
-## P1（第 3–6 周）— 生产级业务治理
+| 阶段 | 实施内容 | 交付与验收 |
+| --- | --- | --- |
+| P0 · 平台架构契约 | 模块边界、状态机、API、领域模型、ADR、时间/数据库迁移策略 | 文档评审；旧功能 CI 无回归 |
+| P1-A · Agent 定义 | Agent、不可变 AgentVersion、ToolGrant、模型/工具配置与资源权限 | 发布版本，不允许越权或修改已发布内容 |
+| P1-B · Run 核心 | AgentRun、Step、Event、DispatchOutbox、幂等 Run API、Celery Dispatcher | 重复 POST 去重、Worker 竞争、Broker 失败可恢复 |
+| P1-C · Runtime V1 | SDK Adapter、Mock 只读经营数据 Tool、Agent Loop、预算和超时 | 用户提交自然语言分析 → 真实工具调用 → 结果/步骤持久化 |
+| P2 · 体验与观测 | Session/Message、Model Gateway、模型用量和成本、Channels 推送与补查 | 刷新/断线不丢状态，跨用户隔离 |
+| P3 · 治理与审批 | Tool Gateway 可写操作、Policy、Approval、Outbox、远端对账、审计 | 越权拒绝、审批前禁写、重复操作不重复写 |
+| P4 · 自动化接入与 Workflow | AgentRun 和现有 TaskSchedule 受控联动，顺序/条件/审批流程 | 手动/定时同一 Agent，执行状态与审计统一关联 |
 
-- 状态机与持久化任务编排
-- 组织、角色、数据范围、策略版本
-- 风险审批、过期与重新校验
-- 任务中心 / 审批中心；REST 操作 + WebSocket 状态推送
+## 第一条演示任务
 
-## P2（第 7–10 周）— 可靠性与可观测
+`分析本月销售变化` → Agent 调用本地 Mock 只读经营数据工具 → 生成有来源的结论 → 保存 Run、Step、Event、用量 → 前端查询结果。
 
-- Celery 后台执行、限定重试、超时、故障恢复、远端操作结果核对
-- Channels 断线重连和 REST 状态补查测试
-- Tracing、审计事件、成本与成功率指标
-- 故障注入、Agent 评测与回归测试
+第二条演示才引入模拟 ERP 的应收查询与催收审批，用于证明平台对工具治理的复用能力，而非开发完整 ERP。
 
-## V1（第 11–12 周）— 开源发布
+## 不做
 
-- Docker Compose 演示部署
-- CI、开发文档、API Schema、安全说明与演示视频
-- 目标：40+ 工程测试、30–50 条评测样例
+- 通用多租户 SaaS、完整 ERP、任意 Python/Shell/SQL 代码执行、复杂拖拽 Workflow、第一版就做微服务和 Kubernetes。
+- 未经过安全网关授权的自动业务写入、没有幂等/对账的高风险重试。
 
-## V1.1
-
-- 第二个企业业务连接器，验证平台复用性
-- MCP / OpenAPI 连接器扩展机制
-
-仅为建议里程碑，不代表已交付。
+原始 12 周路线图中的“基础框架待建设”“Celery 待接入”已由实际代码实现，不再作为新的开发任务重复投入。后续每阶段均须附真实 CI 和演示验收记录。
