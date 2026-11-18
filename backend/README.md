@@ -31,7 +31,7 @@ unset INITIAL_SUPERUSER_PASSWORD
 
 也可以不设置环境变量，先执行 `python manage.py init`，随后运行 `python manage.py changepassword SuperAdmin` 创建初始密码。
 
-仅初始化已开发功能的菜单，包括工作台、组织与权限、Agent 管理、Agent 执行、模型配置、自动化任务、定时计划和系统设置。模型配置操作仅允许平台超级管理员；Agent 运行权限需要单独授权。
+仅初始化已开发功能的菜单，包括工作台、组织与权限、Agent 管理、Agent 执行、Agent 会话、模型配置、自动化任务、定时计划和系统设置。模型配置操作仅允许平台超级管理员；Agent 运行权限需要单独授权。
 
 不要在已有业务数据库上使用 `python manage.py init -y` 进行破坏性重置。
 
@@ -61,3 +61,6 @@ celery -A main beat --scheduler django_celery_beat.schedulers:DatabaseScheduler 
 使用 `python manage.py shell` 运行 `from system.tasks import ping; ping.delay()` 验证任务派发。详见 [Celery 配置、部署与任务开发说明](../docs/development/celery.md) 和 [定时任务计划 V2 使用指南](../docs/development/automation-scheduler.md)。
 
 ## P2-A 模型与执行治理\n\n管理员可从左侧“模型配置”页面配置 Provider（只填 env: 变量引用，禁止输入 API Key 明文）、模型价格和输出限制。用户在“Agent 执行”页面可取消排队或运行中任务并查看 Token/估算费用。详见 [P2-A 使用说明](../docs/platform-architecture/11-p2a-model-governance.md)。\n
+## P2-B 持久会话与执行事件流
+
+后台新增“Agent 会话”（`/agentChat`）管理页面，支持连续追问、历史消息、上下文和 SSE RunEvent 状态订阅。消息仅会话所有者可访问。首次升级请执行 `python manage.py migrate` 和 `python manage.py init`，确保 Celery Worker 及 Outbox Dispatcher 持续运行。当前 SSE 是执行状态事件，不是模型 Token 逐字流。详见 [P2-B 部署与验收文档](../docs/platform-architecture/12-p2b-session-and-event-stream.md)。
