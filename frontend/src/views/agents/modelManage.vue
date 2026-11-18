@@ -31,8 +31,15 @@
         </el-table>
       </el-tab-pane>
       <el-tab-pane name="profiles" label="模型列表与价格">
-        <div class="toolbar"><strong>模型配置</strong><el-button type="primary" :icon="Plus" :disabled="providers.length === 0" @click="openProfile()">新增模型</el-button></div>
-        <el-table :data="profiles" v-loading="loading" stripe>
+        <div class="toolbar"><strong>本地模型目录</strong><el-button type="primary" :icon="Plus" :disabled="providers.length === 0" @click="openProfile()">手动新增</el-button></div>
+        <div class="model-filters">
+          <el-select v-model="selectedProviderId" clearable placeholder="全部供应商" style="width:200px">
+            <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id"/>
+          </el-select>
+          <el-input v-model="modelQuery" clearable placeholder="按模型 ID / 名称搜索" style="width:270px"/>
+          <span>共 {{ filteredProfiles.length }} 个模型</span>
+        </div>
+        <el-table :data="filteredProfiles" v-loading="loading" stripe>
           <el-table-column prop="name" label="名称" min-width="140"/>
           <el-table-column label="Provider" min-width="120"><template #default="{ row }">{{ providerLabel(row.provider) }}</template></el-table-column>
           <el-table-column prop="model_code" label="模型 ID" min-width="140"/>
@@ -102,7 +109,7 @@
 </template>
 
 <script setup name="modelManage">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus, Refresh } from "@element-plus/icons-vue";
 import { listProviders, createProvider, updateProvider, listProfiles, createProfile, updateProfile, syncProviderModels } from "./api";
@@ -110,6 +117,13 @@ import { listProviders, createProvider, updateProvider, listProfiles, createProf
 const tab = ref("providers");
 const providers = ref([]);
 const profiles = ref([]);
+const selectedProviderId = ref(null);
+const modelQuery = ref("");
+const filteredProfiles = computed(() => profiles.value.filter(model => {
+  if (selectedProviderId.value && model.provider !== selectedProviderId.value) return false;
+  const needle = modelQuery.value.trim().toLowerCase();
+  return !needle || model.name.toLowerCase().includes(needle) || model.model_code.toLowerCase().includes(needle);
+}));
 const loading = ref(false);
 const saving = ref(false);
 const syncingId = ref(null);
@@ -192,6 +206,7 @@ async function syncModels(provider) {
     if (response.code !== 2000) throw new Error(response.msg || "同步失败");
     ElMessage.success("已同步 " + response.data.total + " 个模型，新增 " + response.data.created + " 个，已存在 " + response.data.existing + " 个");
     tab.value = "profiles";
+    selectedProviderId.value = provider.id;
     await reload();
   } catch (error) {
     ElMessage.error(error?.message || "同步失败，请检查供应商凭据和接口");
@@ -207,6 +222,7 @@ onMounted(reload);
 h1 { font-size: 26px; margin: 0 0 8px; }
 .description { color: var(--el-text-color-secondary); margin: 0; line-height: 1.7; }
 .alert { margin-bottom: 16px; }
+.model-filters { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:12px 0; color:var(--el-text-color-secondary); font-size:12px; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; }
 @media (max-width: 720px) { .models-page { padding: 12px; } .header { flex-direction: column; } }
 </style>
