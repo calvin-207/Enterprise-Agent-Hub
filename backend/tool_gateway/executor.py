@@ -2,7 +2,7 @@
 from datetime import datetime
 from django.utils import timezone
 
-from agents.services import allowed_tool_ids
+from agent_catalog.services import allowed_tool_ids
 from tool_gateway.models import ToolDefinition
 
 
