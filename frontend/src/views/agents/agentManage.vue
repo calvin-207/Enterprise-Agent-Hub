@@ -93,7 +93,7 @@
         </el-form-item>
         <el-form-item label="模型配置" prop="model_profile">
           <el-select v-model="versionForm.model_profile" placeholder="选择已启用的模型" style="width:100%" :disabled="versionReadOnly">
-            <el-option v-for="m in models" :key="m.id" :value="m.id" :label="m.provider_code + ' / ' + m.model_code"/>
+            <el-option v-for="m in models" :key="m.id" :value="m.id" :label="m.provider_code + ' / ' + m.model_code + (m.is_default ? '（默认）' : '')"/>
           </el-select>
         </el-form-item>
         <el-form-item label="允许使用的只读工具" prop="tool_ids">
@@ -241,7 +241,7 @@ function openVersion(row = null) {
   versionForm.value = row ? {
     system_prompt: row.system_prompt, model_profile: row.model_profile,
     tool_ids: row.tools.filter((t) => t.enabled).map((t) => t.id),
-  } : { system_prompt: "", model_profile: null, tool_ids: [] };
+  } : { system_prompt: "", model_profile: models.value.find(m => m.is_default)?.id ?? null, tool_ids: [] };
   showVersionForm.value = true;
 }
 async function saveVersion() {
