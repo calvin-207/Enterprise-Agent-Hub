@@ -49,3 +49,5 @@ export const submitSessionRun = (id, message, key) => ajaxPost({
   url: `${base}sessions/${id}/runs/`,
   params: { message, deadline_seconds: 120 }, headers: { "Idempotency-Key": key },
 });
+
+export const syncProviderModels = (id) => ajaxPost({ url: `${base}model-providers/${id}/sync/`, params: {} });
