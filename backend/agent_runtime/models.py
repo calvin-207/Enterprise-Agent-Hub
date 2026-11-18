@@ -16,6 +16,7 @@ class AgentRun(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     agent = models.ForeignKey("agents.Agent", on_delete=models.PROTECT, related_name="runs")
     version = models.ForeignKey("agents.AgentVersion", on_delete=models.PROTECT, related_name="runs")
+    session = models.ForeignKey("AgentSession", on_delete=models.PROTECT, related_name="runs", null=True, blank=True)
     requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="agent_runs")
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.QUEUED, db_index=True)
     status_version = models.PositiveIntegerField(default=1)
@@ -105,3 +106,34 @@ class ModelUsage(models.Model):
     output_price_per_million = models.DecimalField(max_digits=14, decimal_places=6, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
+
+
+class AgentSession(models.Model):
+    """Private, user-owned conversation bound to one Agent."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    agent = models.ForeignKey("agents.Agent", on_delete=models.PROTECT, related_name="sessions")
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="agent_sessions")
+    title = models.CharField(max_length=120, default="新会话")
+    archived = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-updated_at",)
+        indexes = [models.Index(fields=("owner", "archived"), name="eah_session_owner_idx")]
+
+
+class AgentMessage(models.Model):
+    class Role(models.TextChoices):
+        USER = "user", "用户"
+        ASSISTANT = "assistant", "助手"
+
+    session = models.ForeignKey(AgentSession, on_delete=models.CASCADE, related_name="messages")
+    run = models.ForeignKey(AgentRun, on_delete=models.PROTECT, related_name="messages")
+    role = models.CharField(max_length=12, choices=Role.choices)
+    content = models.TextField(max_length=12000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("id",)
+        constraints = [models.UniqueConstraint(fields=("run", "role"), name="eah_run_unique_msg_role")]
