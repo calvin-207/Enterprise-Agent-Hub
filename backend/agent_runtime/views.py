@@ -1,5 +1,6 @@
 """REST read/submit interface. Run state is authoritative in PostgreSQL."""
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -22,7 +23,9 @@ def render_run(obj):
 
 def visible_runs(user):
     if is_platform_admin(user):
-        return AgentRun.objects.all()
+        # Admin may audit standalone runs, but private session-associated runs
+        # remain visible to the conversation owner only.
+        return AgentRun.objects.filter(Q(session__isnull=True) | Q(requested_by=user))
     return AgentRun.objects.filter(requested_by=user)
 
 
