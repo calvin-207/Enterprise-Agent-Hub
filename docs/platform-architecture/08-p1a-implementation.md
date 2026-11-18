@@ -8,7 +8,7 @@
 - `backend/model_gateway/`：ModelProvider、ModelProfile（凭据只使用 secret_ref，API 永不返回）。
 - `backend/tool_gateway/`：ToolDefinition（P1-A 仅准许 mock_sales_summary 的只读定义）。
 - 三组 `0001_initial.py` Django migration，不修改 `system`、`automation` 原有表。
-- `backend/tests/test_platform_agents.py`：认证、发布不可变、对象授权、实时权限撤销、禁止动态工具调用等。
+- `backend/tests/test_platform_agents.py`：认证、发布不可变、对象授权、实时权限撤销、禁止动态工具调用等。\n- `frontend/src/views/agents/agentManage.vue`、`api.js`：Agent 管理页面，支持草稿、版本、发布、只读工具和运行授权；没有实际执行功能。
 
 ## 安装与首次演示配置
 
@@ -21,7 +21,7 @@ python manage.py bootstrap_mock_catalog
 
 `bootstrap_mock_catalog` 创建 **不含真实 API Key** 的 `mock` Provider、`mock-small` ModelProfile、`mock_sales_summary` 只读 ToolDefinition。重新执行不会重复创建。
 
-当前不支持从 API 写入模型密钥或任意工具代码。真正的模型供应商凭据管理、SDK Adapter、工具执行属于后续阶段。不要将模拟模型当成可计费的真实 LLM。
+运行 `python manage.py init` 可在系统菜单新增 **Agent 管理**（`/agentManage`）；需要通过已有菜单授权系统将页面入口授予对应管理员（后端操作仍校验超级管理员）。\n\n当前不支持从 API 写入模型密钥或任意工具代码。真正的模型供应商凭据管理、SDK Adapter、工具执行属于后续阶段。不要将模拟模型当成可计费的真实 LLM。
 
 ## 当前 REST API（JWT）
 
