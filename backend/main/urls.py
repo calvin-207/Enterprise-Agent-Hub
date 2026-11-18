@@ -87,6 +87,7 @@ urlpatterns += [
     # 管理后台的标准接口
     path("api/system/", include("system.urls")),
     path("api/automation/", include("automation.urls")),
+    path("api/platform/v1/", include("agents.urls")),
     path("api/token/", LoginView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/captcha/", CaptchaView.as_view()),
