@@ -37,3 +37,15 @@ export const updateProvider = (id, params) => ajaxPatch({ url: `${base}model-pro
 export const listProfiles = () => ajaxGet({ url: `${base}model-profiles/` });
 export const createProfile = (params) => ajaxPost({ url: `${base}model-profiles/`, params });
 export const updateProfile = (id, params) => ajaxPatch({ url: `${base}model-profiles/${id}/`, params });
+
+export const listSessions = () => ajaxGet({ url: `${base}sessions/` });
+export const createSession = (params) => ajaxPost({ url: `${base}sessions/`, params });
+export const getSession = (id) => ajaxGet({ url: `${base}sessions/${id}/` });
+export const updateSession = (id, params) => ajaxPatch({ url: `${base}sessions/${id}/`, params });
+export const getSessionMessages = (id, after = 0) => ajaxGet({
+  url: `${base}sessions/${id}/messages/`, params: { after, limit: 100 },
+});
+export const submitSessionRun = (id, message, key) => ajaxPost({
+  url: `${base}sessions/${id}/runs/`,
+  params: { message, deadline_seconds: 120 }, headers: { "Idempotency-Key": key },
+});
