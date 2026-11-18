@@ -8,6 +8,7 @@ class AgentRun(models.Model):
     class Status(models.TextChoices):
         QUEUED = "QUEUED", "待执行"
         RUNNING = "RUNNING", "执行中"
+        CANCEL_REQUESTED = "CANCEL_REQUESTED", "取消中"
         SUCCEEDED = "SUCCEEDED", "成功"
         FAILED = "FAILED", "失败"
         CANCELLED = "CANCELLED", "已取消"
@@ -89,3 +90,17 @@ class DispatchOutbox(models.Model):
         indexes = [
             models.Index(fields=("status", "next_attempt_at"), name="eah_outbox_due_idx"),
         ]
+
+
+class ModelUsage(models.Model):
+    """One usage record per Run; no prompt/secret text is stored."""
+    run = models.OneToOneField(AgentRun, on_delete=models.CASCADE, related_name="model_usage")
+    provider_code = models.CharField(max_length=64)
+    model_code = models.CharField(max_length=120)
+    input_tokens = models.PositiveIntegerField(null=True, blank=True)
+    output_tokens = models.PositiveIntegerField(null=True, blank=True)
+    estimated_cost = models.DecimalField(max_digits=16, decimal_places=8, null=True, blank=True)
+    input_price_per_million = models.DecimalField(max_digits=14, decimal_places=6, default=0)
+    output_price_per_million = models.DecimalField(max_digits=14, decimal_places=6, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
