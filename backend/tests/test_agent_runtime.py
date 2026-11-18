@@ -7,7 +7,7 @@ from django.core.management import call_command
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from agents.models import Agent, AgentAccessGrant, AgentVersion
+from agent_catalog.models import Agent, AgentAccessGrant, AgentVersion
 from agent_runtime.models import AgentRun, RunEvent, RunStep, DispatchOutbox
 from agent_runtime.dispatcher import dispatch_pending
 from agent_runtime.services import claim_run, finish_run, expire_abandoned_runs
@@ -39,9 +39,9 @@ def ready_agent(admin, user, db):
         model_profile=ModelProfile.objects.get(model_code="mock-small"),
         system_prompt="Read-only mock analysis", created_by=admin,
     )
-    from agents.models import ToolGrant
+    from agent_catalog.models import ToolGrant
     ToolGrant.objects.create(version=version, tool=ToolDefinition.objects.get(code="mock_sales_summary"))
-    from agents.services import publish_version
+    from agent_catalog.services import publish_version
     Agent.objects.filter(pk=agent.pk).update(status=Agent.Status.DRAFT)
     publish_version(agent, version.pk)
     AgentAccessGrant.objects.create(agent=agent, user=user, capability="run")
