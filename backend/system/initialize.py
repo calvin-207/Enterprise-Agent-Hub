@@ -107,6 +107,7 @@ class Initialize:
         menu_definitions = [
             {"code": "4a7a7748387f44dbab72027d8bdc87f7", "parent_code": None, "icon": "House", "name": "工作台", "sort": 10, "type": 1, "web_path": "/home", "component_name": "home"},
             {"code": "44662b7fe6b54395994f28ed88eaf3f0", "parent_code": None, "icon": "Message", "name": "我的消息", "sort": 20, "type": 1, "web_path": "/myMessage", "component_name": "myMessage"},
+            {"code": "eah-agent-runs-p1c", "parent_code": None, "icon": "Activity", "name": "Agent 执行", "sort": 36, "type": 1, "web_path": "/agentRuns", "component_name": "agentRuns"},
             {"code": "eah-agent-manage-p1a", "parent_code": None, "icon": "Cpu", "name": "Agent 管理", "sort": 35, "type": 1, "web_path": "/agentManage", "component_name": "agentManage"},
             {"code": "eah-automation-executions-v1", "parent_code": None, "icon": "Timer", "name": "自动化任务", "sort": 40, "type": 1, "web_path": "/taskExecutions", "component_name": "taskExecutions"},
             {"code": "eah-automation-schedules-v2", "parent_code": None, "icon": "CalendarClock", "name": "定时任务计划", "sort": 45, "type": 1, "web_path": "/taskSchedules", "component_name": "taskSchedules"},
