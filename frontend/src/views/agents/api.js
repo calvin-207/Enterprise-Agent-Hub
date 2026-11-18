@@ -20,3 +20,10 @@ export const createAgentGrant = (id, data) =>
   ajaxPost({ url: `${base}agents/${id}/access-grants/`, params: data });
 export const revokeAgentGrant = (id, grantId) =>
   ajaxDelete({ url: `${base}agents/${id}/access-grants/${grantId}/` });
+
+export const listRuns = () => ajaxGet({ url: `${base}runs/` });
+export const createRun = (data, idempotencyKey) =>
+  ajaxPost({ url: `${base}runs/`, params: data, headers: { "Idempotency-Key": idempotencyKey } });
+export const getRun = (id) => ajaxGet({ url: `${base}runs/${id}/` });
+export const getRunSteps = (id) => ajaxGet({ url: `${base}runs/${id}/steps/` });
+export const getRunEvents = (id) => ajaxGet({ url: `${base}runs/${id}/events/` });
