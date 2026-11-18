@@ -4,6 +4,14 @@
 >
 > **架构基线**：[docs/platform-architecture/README.md](docs/platform-architecture/README.md)；**Codex 任务与验收**：[06-codex-delivery-plan.md](docs/platform-architecture/06-codex-delivery-plan.md)。
 
+## 模型管理增强（2026-11-18）
+
+- 将原模型配置页面迁入 **系统配置 → AI 模型管理**，沿用原菜单 code 和 /modelManage 路由。
+- 新增 Provider 主动同步模型：OpenAI / OpenAI 兼容 / Mock，新的模型默认不启用，重复同步不覆盖已有名称、价格或默认设置。
+- 增加可选加密 API Key（服务端 Fernet + 独立环境密钥），或沿用 env: 环境变量引用；兼容 API 仅允许运维白名单 HTTPS 域名。
+- 允许手动设置已启用模型为默认模型，新建 Agent 版本时自动预选；供应商返回模型 ID 不代表已通过能力或付费模型实际调用验证。
+- 完整说明：[13 AI 模型管理及供应商同步](docs/platform-architecture/13-model-sync-management.md)。
+
 ## 已完成基座（截至 2026-11-18）
 
 - Django 5.2 / DRF、Vue 3 / Vite、已有用户、角色、部门、菜单管理
