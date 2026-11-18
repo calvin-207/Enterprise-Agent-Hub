@@ -1,10 +1,11 @@
 """P1-A configuration endpoints. No model/tool execution occurs here."""
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import Http404
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
-from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated, PermissionDenied
+from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated, PermissionDenied, NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView, exception_handler
 
@@ -33,7 +34,7 @@ class PlatformAPI(APIView):
 
     def handle_exception(self, exc):
         # Existing legacy exception handler may convert 401/403 to HTTP 200.
-        if isinstance(exc, (AuthenticationFailed, NotAuthenticated, PermissionDenied)):
+        if isinstance(exc, (AuthenticationFailed, NotAuthenticated, PermissionDenied, NotFound, Http404, ValidationError)):
             response = exception_handler(exc, self.get_exception_handler_context())
             if response is not None:
                 return response
