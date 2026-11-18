@@ -77,7 +77,7 @@ Content-Type: application/json
 
 `user_id`、`role_ids`、`tool_grants`、`model_api_key` 不允许由请求指定；它们由后端安全上下文查出。
 
-**202 Created/Queued（示例）**：
+**202 Accepted（已排队，示例）**：
 
 ```json
 {
