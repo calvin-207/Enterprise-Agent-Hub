@@ -90,14 +90,38 @@ class ProviderConfigAPI(PlatformAPI):
             return bad("Provider 类型、名称或 code 不合法")
         if not isinstance(enabled, bool) or not validate_secret_ref(ref):
             return bad("只允许 env:OPENAI_API_KEY 或 env:EAH_MODEL_KEY_... 密钥引用")
-        if kind == "openai" and enabled and not ref:
-            return bad("启用真实模型时必须先配置 Secret Ref")
-        if kind == "mock" and ref:
-            return bad("Mock Provider 无需任何密钥引用")
+        if not isinstance(base_url, str) or len(base_url) > 255:
+            return bad("Base URL 无效")
+        if not isinstance(clear_api_key, bool) or (api_key is not None and
+                (not isinstance(api_key, str) or not 8 <= len(api_key) <= 4096)):
+            return bad("密钥请求格式无效")
+        if api_key is not None and (ref or clear_api_key):
+            return bad("API Key、环境变量引用和清除操作不能同时提交")
+        if kind == "mock" and (ref or api_key or base_url):
+            return bad("Mock Provider 无需密钥及 URL")
+        if kind == "openai" and base_url and base_url.rstrip("/") != "https://api.openai.com/v1":
+            return bad("OpenAI 官方 Provider 只能使用官方 API 地址")
+        if kind == "openai_compatible":
+            try:
+                candidate = ModelProvider(adapter_type=kind, base_url=base_url)
+                safe_base_url(candidate)
+            except ModelSyncError as exc:
+                return bad(str(exc))
+        key_available = bool(api_key) or bool(instance and instance.encrypted_api_key and not clear_api_key)
+        if kind != "mock" and enabled and not (ref or key_available):
+            return bad("启用模型前请配置安全存储的 API Key 或环境变量引用")
         try:
             obj = instance or ModelProvider()
             obj.code, obj.name, obj.adapter_type = code, name, kind
             obj.secret_ref, obj.enabled = ref, enabled
+            obj.base_url = base_url
+            if clear_api_key:
+                obj.encrypted_api_key = ""
+            if api_key is not None:
+                try:
+                    obj.encrypted_api_key = encrypt_api_key(api_key)
+                except (ValueError, ImproperlyConfigured):
+                    return bad("加密失败，请配置 EAH_MODEL_ENCRYPTION_KEY", 503)
             obj.save()
         except IntegrityError:
             return bad("Provider code 已存在", 409)
