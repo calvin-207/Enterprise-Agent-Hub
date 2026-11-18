@@ -5,12 +5,15 @@ from automation.models import TaskExecution
 
 class TaskExecutionSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source="created_by.username", read_only=True)
+    definition_title = serializers.CharField(source="definition.title", read_only=True, default=None)
+    schedule_name = serializers.CharField(source="schedule.name", read_only=True, default=None)
 
     class Meta:
         model = TaskExecution
         fields = (
             "id", "title", "task_type", "status", "celery_task_id",
-            "created_by_name", "retry_of", "result", "error_message",
+            "created_by_name", "retry_of", "definition", "definition_title",
+            "schedule", "schedule_name", "scheduled_slot", "result", "error_message",
             "created_at", "started_at", "finished_at",
         )
         read_only_fields = fields
