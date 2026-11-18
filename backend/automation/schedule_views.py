@@ -68,7 +68,11 @@ class ScheduleView(AutomationView):
 
     def post(self, request, schedule_id=None):
         if schedule_id is not None:
-            # Explicit manual run for an enabled plan: no arbitrary Celery task names.
+            # Manual execution is only valid on the explicit /run/ endpoint.
+            if request.resolver_match.url_name != "automation-schedule-run":
+                return Response({"code": 405, "msg": "请使用 /run/ 触发任务"},
+                                status=status.HTTP_405_METHOD_NOT_ALLOWED)
+            # Explicit manual run: no arbitrary Celery task names.
             plan = get_object_or_404(
                 TaskSchedule.objects.select_related("definition"), pk=schedule_id
             )
