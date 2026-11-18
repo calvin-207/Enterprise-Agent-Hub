@@ -14,13 +14,13 @@ def dispatch_pending(limit=50):
     due = DispatchOutbox.objects.filter(
         Q(status=DispatchOutbox.Status.PENDING)
         | Q(status=DispatchOutbox.Status.SENDING, lease_until__lt=now),
-    ).filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
+    ).filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now), run__status="QUEUED")
     for pk in due.order_by("id").values_list("pk", flat=True)[:limit]:
         # Conditional claim: two dispatchers cannot both own the same row concurrently.
         claimed = DispatchOutbox.objects.filter(pk=pk).filter(
             Q(status=DispatchOutbox.Status.PENDING)
             | Q(status=DispatchOutbox.Status.SENDING, lease_until__lt=now)
-        ).update(status=DispatchOutbox.Status.SENDING, lease_until=now + timedelta(seconds=60))
+        ).filter(run__status="QUEUED").update(status=DispatchOutbox.Status.SENDING, lease_until=now + timedelta(seconds=60))
         if not claimed:
             continue
         record = DispatchOutbox.objects.get(pk=pk)
