@@ -111,7 +111,7 @@ async function selectSession(session) {
     const result = await getSession(session.id);
     if (result.code === 2000 && selected.value?.id === session.id) {
       selected.value = result.data;
-      if (result.data.active_run_id) await watchRun(result.data.active_run_id);
+      if (result.data.active_run_id) void watchRun(result.data.active_run_id);
     }
   } catch { /* next manual refresh can recover */ }
 }
@@ -135,7 +135,7 @@ async function send() {
     if (response.code !== 2000) throw Error(response.error?.message || response.msg);
     draft.value = "";
     await refreshMessages();
-    await watchRun(response.data.id);
+    void watchRun(response.data.id);
   } catch (error) { ElMessage.error(error?.message || "提交任务失败"); }
   finally { sending.value = false; }
 }
