@@ -76,7 +76,11 @@
           <el-descriptions-item label="模型">{{ usage.provider }} / {{ usage.model }}</el-descriptions-item>
           <el-descriptions-item label="输入 Token">{{ usage.input_tokens ?? "未知" }}</el-descriptions-item>
           <el-descriptions-item label="输出 Token">{{ usage.output_tokens ?? "未知" }}</el-descriptions-item>
-          <el-descriptions-item label="估算费用">{{ usage.estimated_cost === null ? "未知" : '
+          <el-descriptions-item label="估算费用">{{ usage.estimated_cost == null ? "未知" : usage.estimated_cost + " USD" }}</el-descriptions-item>
+        </el-descriptions>
+        <el-empty v-else description="暂无模型用量记录" />
+        <p class="usage-note">估算费用仅供参考，不代表供应商实际账单。</p>
+        <h3>执行步骤</h3>
         <el-timeline>
           <el-timeline-item v-for="s in steps" :key="s.sequence" :timestamp="'步骤 ' + s.sequence">
             <strong>{{ s.kind }}</strong> · {{ s.status }}
