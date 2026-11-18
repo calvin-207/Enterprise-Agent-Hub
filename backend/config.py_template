@@ -39,7 +39,9 @@ REDIS_URL = f"redis://:{REDIS_PASSWORD or ''}@{REDIS_HOST}:{REDIS_PORT}"
 
 # Celery defaults to Redis DB 3 (broker) and DB 4 (results).
 # Override CELERY_BROKER_URL / CELERY_RESULT_BACKEND in the process environment.
-# CELERY_ENABLE_HEALTHCHECK_SCHEDULE=true enables an opt-in periodic DB probe.
+# Database-backed Cron plans are managed by django-celery-beat.
+# Run `celery -A main beat -S django_celery_beat.schedulers:DatabaseScheduler`.
+# CELERY_ENABLE_HEALTHCHECK_SCHEDULE=true enables a static opt-in DB probe (if used).
 # Run only one beat scheduler process per deployment.
 
 # global log config
