@@ -130,3 +130,56 @@ def test_sdk_adapter_never_uses_mock_provider_as_live(setup_agent, monkeypatch):
     version.model_profile.provider.adapter_type = "untrusted-provider"
     with pytest.raises(ModelUnavailable):
         make_adapter(version)
+
+
+@pytest.mark.django_db
+def test_live_sdk_import_is_not_shadowed_by_django_catalog(setup_agent, monkeypatch):
+    """Verify SDK namespace after moving Django app to agent_catalog."""
+    from agents import Agent as SDKAgent, Runner
+    assert callable(Runner.run_sync)
+    assert SDKAgent.__module__.startswith("agents.")
+    from agent_catalog.models import Agent as DatabaseAgent
+    assert SDKAgent is not DatabaseAgent
+
+
+@pytest.mark.django_db
+def test_openai_adapter_uses_real_sdk_boundary_without_network(setup_agent, monkeypatch):
+    from types import SimpleNamespace
+    from agent_runtime.adapter import OpenAIAgentsAdapter
+    from agents import Runner
+
+    agent, version, user, tool = setup_agent
+    version.model_profile.provider.adapter_type = "openai"
+    monkeypatch.setenv("OPENAI_API_KEY", "unit-test-placeholder-not-a-real-key")
+    seen = {}
+
+    def fake_run(sdk_agent, prompt, **kwargs):
+        seen["model"] = sdk_agent.model
+        seen["prompt"] = prompt
+        seen["max_turns"] = kwargs["max_turns"]
+        return SimpleNamespace(final_output="模拟数据分析完成")
+
+    monkeypatch.setattr(Runner, "run_sync", fake_run)
+    result = OpenAIAgentsAdapter().run(
+        version=version, actor=user, message="分析月度销售",
+        on_tool=lambda *args, **kwargs: {},
+        check_budget=lambda: None,
+    )
+    assert result["mock"] is False
+    assert result["answer"] == "模拟数据分析完成"
+    assert seen["max_turns"] == 4
+    assert seen["model"] == "mock-small"
+
+
+@pytest.mark.django_db
+def test_live_adapter_requires_worker_key(setup_agent, monkeypatch):
+    from agent_runtime.adapter import OpenAIAgentsAdapter
+    agent, version, user, tool = setup_agent
+    version.model_profile.provider.adapter_type = "openai"
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(ModelUnavailable):
+        OpenAIAgentsAdapter().run(
+            version=version, actor=user, message="分析",
+            on_tool=lambda *args, **kwargs: {},
+            check_budget=lambda: None,
+        )
