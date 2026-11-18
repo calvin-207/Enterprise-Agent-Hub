@@ -43,10 +43,10 @@ python manage.py runserver 127.0.0.1:8000
 celery -A main worker --loglevel=info --concurrency=2
 
 # 终端 3：Celery Beat（仅当需要周期任务时）
-CELERY_ENABLE_HEALTHCHECK_SCHEDULE=true celery -A main beat --loglevel=info
+celery -A main beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
 ```
 
-注意：如果希望 Worker/Beat 通过同一选项启用定时任务，Beat 的环境变量必须在启动 Beat 前设置；不必在 Django API 或 Worker 中设置它。
+Beat 从数据库中读取任务定义和 Cron 计划；在“定时任务计划”前端管理页保存计划后，无需重启 Beat。\n\n旧的 `CELERY_ENABLE_HEALTHCHECK_SCHEDULE=true` 只用于启用静态演示健康检查；**不是**动态计划的必要条件。
 
 生产部署应使用进程管理器或容器分别启动 Django、Worker、Beat。每个部署环境**只允许一个 Beat 调度器**，避免重复派发。Windows 开发优先使用 Docker/Linux Worker。
 
@@ -62,7 +62,7 @@ CELERY_ENABLE_HEALTHCHECK_SCHEDULE=true celery -A main beat --loglevel=info
 | `CELERY_TASK_SOFT_TIME_LIMIT` | 270 秒 | 软超时，尽量触发清理 |
 | `CELERY_TASK_TIME_LIMIT` | 300 秒 | 硬超时 |
 | `CELERY_RESULT_EXPIRES` | 86400 秒 | 结果有效期 |
-| `CELERY_ENABLE_HEALTHCHECK_SCHEDULE` | false | 开启每 15 分钟的数据库探测 |
+| `CELERY_BEAT_SCHEDULER` | `django_celery_beat.schedulers:DatabaseScheduler` | 数据库存储的 Cron 计划调度器 |\n| `CELERY_ENABLE_HEALTHCHECK_SCHEDULE` | false | 可选静态的 15 分钟健康探测 |
 
 Redis DB 0、1、2 已由 Django 缓存使用；默认 3、4 给 Celery。生产环境推荐独立 Redis 或 ACL，不要把 Redis 直接暴露公网。
 
@@ -135,4 +135,4 @@ celery -A main inspect registered
 
 GitHub Actions 的 backend Job 额外启动 Redis 服务与独立 Celery Worker，向 Broker 投递 `system.ping` 并实际读取结果。
 
-本次仅接入通用任务基础设施，未启用任务管理 API、数据库持久任务列表、定时任务管理后台和 Agent 业务执行逻辑。后续开发按模块扩展。
+**当前已提供**通用任务执行记录 API 与前端页面，以及数据库持久化的任务定义 / Cron 计划管理。详见 [自动化任务 V2](./automation-scheduler.md)。Agent 业务执行逻辑仍需后续开发。
