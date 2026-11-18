@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from agent_catalog.models import Agent, AgentVersion
 from agent_catalog.services import allowed_tool_ids, is_granted
-from agent_runtime.models import AgentRun, RunEvent, RunStep, DispatchOutbox
+from agent_runtime.models import AgentRun, RunEvent, RunStep, DispatchOutbox, AgentSession, AgentMessage
 
 
 class RunCancelled(Exception):
@@ -41,7 +41,7 @@ def snapshot_for(version, actor):
     }
 
 
-def start_run(*, actor, agent, payload, idempotency_key, deadline_seconds=120):
+def start_run(*, actor, agent, payload, idempotency_key, deadline_seconds=120, session=None):
     if not isinstance(idempotency_key, str) or not 1 <= len(idempotency_key) <= 120:
         raise RunRejected("必须提交有效的 Idempotency-Key", 400, "IDEMPOTENCY_KEY_REQUIRED")
     if not isinstance(payload, dict) or not payload:
@@ -51,7 +51,7 @@ def start_run(*, actor, agent, payload, idempotency_key, deadline_seconds=120):
     if len(json.dumps(payload, ensure_ascii=False)) > 16000:
         raise RunRejected("输入超过大小限制")
     # The key scope is the authenticated actor, not the requested agent.
-    digest = canonical_hash({"agent": str(agent.pk), "input": payload, "deadline": deadline_seconds})
+    digest = canonical_hash({"agent": str(agent.pk), "session": str(session.pk) if session else None, "input": payload, "deadline": deadline_seconds})
     existing = AgentRun.objects.filter(requested_by=actor, idempotency_key=idempotency_key).first()
     if existing:
         if existing.input_digest != digest:
@@ -81,6 +81,17 @@ def start_run(*, actor, agent, payload, idempotency_key, deadline_seconds=120):
                 if duplicate.input_digest != digest:
                     raise RunRejected("相同幂等键不能用于不同请求", 409, "IDEMPOTENCY_CONFLICT")
                 return duplicate, False
+            if session is not None:
+                locked_session = AgentSession.objects.select_for_update().get(pk=session.pk)
+                if locked_session.owner_id != actor.pk or locked_session.agent_id != agent.pk or locked_session.archived:
+                    raise RunRejected("会话不存在或不可用", 404, "SESSION_NOT_AVAILABLE")
+                if AgentRun.objects.filter(session=locked_session, status__in=(
+                    AgentRun.Status.QUEUED, AgentRun.Status.RUNNING,
+                    AgentRun.Status.CANCEL_REQUESTED,
+                )).exists():
+                    raise RunRejected("该会话已有未完成任务", 409, "SESSION_BUSY")
+                if not isinstance(payload.get("message"), str) or not 1 <= len(payload["message"].strip()) <= 4000:
+                    raise RunRejected("会话消息长度必须在 1 至 4000 字符之间", 400, "INVALID_MESSAGE")
             active = AgentRun.objects.filter(
                 requested_by=actor, status__in=(
                     AgentRun.Status.QUEUED, AgentRun.Status.RUNNING,
@@ -96,13 +107,17 @@ def start_run(*, actor, agent, payload, idempotency_key, deadline_seconds=120):
             if recent >= 100:
                 raise RunRejected("24 小时任务配额已用完", 429, "DAILY_RUN_LIMIT")
             run = AgentRun.objects.create(
-                agent=agent, version=version, requested_by=actor,
+                agent=agent, version=version, requested_by=actor, session=session,
                 input=payload, input_digest=digest, idempotency_key=idempotency_key,
                 version_snapshot=snapshot,
                 deadline_at=timezone.now() + timedelta(seconds=deadline_seconds),
             )
             RunEvent.objects.create(run=run, sequence=1, kind="run.queued", payload={"status": "QUEUED"})
             DispatchOutbox.objects.create(run=run)
+            if session is not None:
+                AgentMessage.objects.create(session=session, run=run, role=AgentMessage.Role.USER,
+                                            content=payload["message"].strip())
+                AgentSession.objects.filter(pk=session.pk).update(updated_at=timezone.now())
             return run, True
     except IntegrityError:
         # Concurrent identical request raced at the database unique constraint.
@@ -192,6 +207,15 @@ def finish_run(run_id, lease_token, *, status, error_code="", result=None):
         }[status]
         RunEvent.objects.create(run_id=run_id, sequence=sequence, kind=kind,
                                 payload={"status": status, "error_code": error_code})
+        if status == AgentRun.Status.SUCCEEDED and current.session_id and isinstance(result, dict):
+            answer = result.get("answer")
+            if isinstance(answer, str) and answer.strip():
+                AgentMessage.objects.get_or_create(
+                    run_id=run_id, role=AgentMessage.Role.ASSISTANT,
+                    defaults={"session_id": current.session_id, "content": answer[:12000]},
+                )
+        if current.session_id:
+            AgentSession.objects.filter(pk=current.session_id).update(updated_at=timezone.now())
         return True
 
 
