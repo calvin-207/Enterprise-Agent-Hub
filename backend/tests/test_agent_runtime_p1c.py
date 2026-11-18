@@ -6,7 +6,7 @@ import pytest
 from django.core.management import call_command
 from django.utils import timezone
 
-from agents.models import Agent, AgentVersion, AgentAccessGrant, ToolGrant
+from agent_catalog.models import Agent, AgentVersion, AgentAccessGrant, ToolGrant
 from agent_runtime.models import AgentRun
 from agent_runtime.services import start_run
 from agent_runtime.tasks import execute_agent_run
@@ -32,7 +32,7 @@ def setup_agent(db, django_user_model):
     )
     tool = ToolDefinition.objects.get(code="mock_sales_summary")
     ToolGrant.objects.create(version=version, tool=tool)
-    from agents.services import publish_version
+    from agent_catalog.services import publish_version
     publish_version(agent, version.pk)
     agent.refresh_from_db()
     version.refresh_from_db()
