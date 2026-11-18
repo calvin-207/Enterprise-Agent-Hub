@@ -13,12 +13,15 @@ TASK_TITLES = {
 }
 
 
-def enqueue_execution(*, task_type, user, retry_of=None):
+def enqueue_execution(*, task_type, user, retry_of=None, definition=None, schedule=None, scheduled_slot=None):
     if task_type not in TASK_TITLES:
         raise ValueError("Unsupported task type")
     with transaction.atomic():
         execution = TaskExecution.objects.create(
-            title=TASK_TITLES[task_type],
+            title=definition.title if definition is not None else TASK_TITLES[task_type],
+            definition=definition,
+            schedule=schedule,
+            scheduled_slot=scheduled_slot,
             task_type=task_type,
             created_by=user,
             celery_task_id=str(uuid.uuid4()),
