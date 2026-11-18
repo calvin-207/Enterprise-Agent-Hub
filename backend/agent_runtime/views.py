@@ -7,7 +7,7 @@ from agent_catalog.models import Agent, AgentVersion
 from agent_catalog.services import is_granted, is_platform_admin
 from agent_catalog.views import PlatformAPI
 from agent_runtime.models import AgentRun
-from agent_runtime.services import RunRejected, start_run
+from agent_runtime.services import RunRejected, start_run, request_cancel
 
 
 def render_run(obj):
@@ -91,3 +91,26 @@ class RunEventsAPI(PlatformAPI):
              "created_at": e.created_at}
             for e in run.events.filter(sequence__gt=after).order_by("sequence")[:limit]
         ]})
+
+
+class RunCancelAPI(PlatformAPI):
+    def post(self, request, run_id):
+        run = get_object_or_404(visible_runs(request.user), pk=run_id)
+        return Response({"code": 2000, "msg": "success",
+                         "data": render_run(request_cancel(run.pk))})
+
+
+class RunUsageAPI(PlatformAPI):
+    def get(self, request, run_id):
+        run = get_object_or_404(visible_runs(request.user), pk=run_id)
+        usage = getattr(run, "model_usage", None)
+        if usage is None:
+            return Response({"code": 2000, "msg": "success", "data": None})
+        return Response({"code": 2000, "msg": "success", "data": {
+            "provider": usage.provider_code, "model": usage.model_code,
+            "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
+            "estimated_cost": str(usage.estimated_cost) if usage.estimated_cost is not None else None,
+            "input_price_per_million": str(usage.input_price_per_million),
+            "output_price_per_million": str(usage.output_price_per_million),
+            "currency": "USD", "estimated": True,
+        }})
