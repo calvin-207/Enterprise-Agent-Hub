@@ -2,10 +2,10 @@
 import logging
 
 from celery import shared_task
-from django.db import connection
+from django.db import IntegrityError, connection
 from django.utils import timezone
 
-from automation.models import TaskExecution
+from automation.models import TaskExecution, TaskSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -45,3 +45,37 @@ def execute_automation(self, execution_id):
             finished_at=timezone.now(),
         )
         # No blind retry: business operations must implement idempotency first.
+
+
+@shared_task(name="automation.trigger_schedule", ignore_result=True)
+def trigger_schedule(schedule_id):
+    """Beat dispatches only this trusted task name with an integer schedule ID.
+
+    The execution row carries a unique schedule/minute key. Duplicate Beat
+    messages within a minute do not dispatch the business task twice.
+    """
+    if type(schedule_id) is not int or schedule_id <= 0:
+        return
+    schedule = TaskSchedule.objects.select_related(
+        "definition", "created_by"
+    ).filter(pk=schedule_id).first()
+    if not schedule or not schedule.enabled or not schedule.definition.enabled:
+        return
+
+    # Django currently uses USE_TZ=False and Asia/Shanghai as its clock.
+    # A single Beat per deployment ensures minute alignment.
+    slot = timezone.now().replace(second=0, microsecond=0)
+    from automation.services import enqueue_execution
+
+    try:
+        enqueue_execution(
+            task_type=schedule.definition.task_type,
+            user=schedule.created_by,
+            definition=schedule.definition,
+            schedule=schedule,
+            scheduled_slot=slot,
+        )
+    except IntegrityError:
+        logger.info("Already enqueued schedule %s for minute %s", schedule_id, slot)
+        return
+    TaskSchedule.objects.filter(pk=schedule_id).update(last_triggered_at=timezone.now())
