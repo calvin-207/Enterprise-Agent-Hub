@@ -1,5 +1,6 @@
 """Provider adapters. Mock is deterministic/offline; OpenAI SDK is opt-in."""
-from model_gateway.secrets import resolve_secret
+from model_gateway.credentials import get_provider_key
+from model_gateway.discovery import safe_base_url, ModelSyncError
 
 
 class ModelUnavailable(Exception):
@@ -41,10 +42,16 @@ class MockRuntimeAdapter:
 class OpenAIAgentsAdapter:
     """Real SDK runner. SDK controls LLM turns, Gateway remains tool authorization authority."""
     def run(self, *, version, actor, message, on_tool, check_budget, history=None):
-        if version.model_profile.provider.adapter_type != "openai":
+        if version.model_profile.provider.adapter_type not in ("openai", "openai_compatible"):
             raise ModelUnavailable("未启用受信任的 OpenAI Provider")
         provider_config = version.model_profile.provider
-        key = resolve_secret(provider_config.secret_ref or "env:OPENAI_API_KEY")
+        try:
+            key = get_provider_key(provider_config)
+            endpoint = safe_base_url(provider_config)
+        except ModelSyncError as exc:
+            raise ModelUnavailable("Provider 地址配置不合法") from exc
+        except Exception as exc:
+            raise ModelUnavailable("无法读取 Provider 密钥") from exc
         if not key:
             raise ModelUnavailable("Worker 缺少当前 Provider 的密钥")
         from agents import Agent as SDKAgent, Runner, RunConfig, OpenAIProvider, ModelSettings, function_tool
@@ -72,7 +79,7 @@ class OpenAIAgentsAdapter:
         ] + [{"role": "user", "content": message}]) if history else message
         result = Runner.run_sync(
             agent, sdk_input, max_turns=4,
-            run_config=RunConfig(tracing_disabled=True, model_provider=OpenAIProvider(api_key=key)),
+            run_config=RunConfig(tracing_disabled=True, model_provider=OpenAIProvider(api_key=key, base_url=endpoint)),
         )
         check_budget()
         answer = result.final_output
@@ -91,6 +98,6 @@ def make_adapter(version):
     kind = version.model_profile.provider.adapter_type
     if kind == "mock":
         return MockRuntimeAdapter()
-    if kind == "openai":
+    if kind in ("openai", "openai_compatible"):
         return OpenAIAgentsAdapter()
     raise ModelUnavailable("该模型适配器尚未实现")
