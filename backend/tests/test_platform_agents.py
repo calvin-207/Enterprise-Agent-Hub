@@ -104,6 +104,9 @@ def test_user_grant_and_revocation_are_rechecked(client_admin, configured_agent,
         "user": member.pk, "capability": "run"
     }, format="json")
     assert grant.status_code == 201, grant.data
+    assert client_admin.post(f"/api/platform/v1/agents/{agent.pk}/access-grants/", {
+        "user": member.pk, "capability": "manage"
+    }, format="json").status_code == 400
     assert client.get(f"/api/platform/v1/agents/{agent.pk}/").status_code == 200
     assert str(version.pk) in [str(x["id"]) for x in client.get(
         f"/api/platform/v1/agents/{agent.pk}/versions/"
