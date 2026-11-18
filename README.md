@@ -4,7 +4,7 @@
 
 > Enterprise AI Agent Execution & Governance Platform | 企业级 AI Agent 业务执行与治理平台
 
-**Status:** 基础管理系统及 Automation V2 已实现；Agent Runtime P1-C 的 Mock 只读闭环已实现；P2-A 模型配置、用量估算与协作取消已接入；P2-B 持久会话、上下文与 SSE RunEvent 已实现；治理/写工具仍处于设计阶段（截至 2026-11-18）。
+**Status:** 基础管理系统及 Automation V2 已实现；Agent Runtime P1-C 的 Mock 只读闭环已实现；P2-A 模型配置、用量估算与协作取消已接入；P2-B 持久会话、上下文与 SSE RunEvent 已实现；AI 模型管理支持供应商模型同步、密钥加密与本地配置；治理/写工具仍处于设计阶段（截至 2026-11-18）。
 
 Enterprise Agent Hub is an open-source, self-hosted execution and governance layer for AI agents working with existing enterprise ERP, OA and CRM systems.
 
@@ -63,6 +63,7 @@ Python, Django, Django REST Framework, Django Channels (ASGI / WebSocket), chann
 - **[Agent Runtime P1-C：模型适配、工具调用与执行中心](docs/platform-architecture/10-p1c-runtime-implementation.md)**
 - **[P2-A：Model Gateway 配置、用量与运行治理](docs/platform-architecture/11-p2a-model-governance.md)**
 - **[P2-B：会话、消息、上下文和 SSE 事件订阅](docs/platform-architecture/12-p2b-session-and-event-stream.md)**
+- **[AI Model Management / Provider Catalog Sync](docs/platform-architecture/13-model-sync-management.md)**
 
 ![Enterprise Agent Hub architecture](docs/architecture/architecture.svg)
 
