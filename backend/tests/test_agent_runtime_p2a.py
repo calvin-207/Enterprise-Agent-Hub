@@ -184,3 +184,35 @@ def test_secret_environment_resolution_is_restricted(monkeypatch):
     monkeypatch.setenv("EAH_MODEL_KEY_MAIN", "dummy-test-value")
     assert resolve_secret("env:EAH_MODEL_KEY_MAIN") == "dummy-test-value"
     assert resolve_secret("env:DJANGO_SECRET_KEY") is None
+
+
+@pytest.mark.django_db
+def test_disabled_model_is_rejected_before_tool_execution(ready):
+    run = new_run(ready, key="disable-late")
+    profile = ready[1].model_profile
+    profile.enabled = False
+    profile.save(update_fields=["enabled"])
+    with patch("agent_runtime.engine.invoke_read_tool") as invoke:
+        execute_agent_run.apply(args=[str(run.pk)], throw=True)
+        invoke.assert_not_called()
+    run.refresh_from_db()
+    assert run.status == "FAILED"
+    assert run.error_code == "MODEL_UNAVAILABLE"
+
+
+@pytest.mark.django_db
+def test_cancel_and_usage_endpoints_enforce_owner_scope(ready, users, django_user_model):
+    run = new_run(ready, key="owner-scope")
+    owner_client = APIClient()
+    owner_client.force_authenticate(user=ready[3])
+    other = django_user_model.objects.create_user(username="p2a-unrelated", password="test", name="Other")
+    other_client = APIClient()
+    other_client.force_authenticate(user=other)
+    cancel_url = "/api/platform/v1/runs/{}/cancel/".format(run.pk)
+    usage_url = "/api/platform/v1/runs/{}/usage/".format(run.pk)
+    assert other_client.post(cancel_url).status_code == 404
+    assert other_client.get(usage_url).status_code == 404
+    assert owner_client.get(usage_url).data["data"] is None
+    assert owner_client.post(cancel_url).status_code == 200
+    run.refresh_from_db()
+    assert run.status == "CANCELLED"
