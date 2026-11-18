@@ -1,6 +1,7 @@
 """P2-B regression: isolation, turn persistence, history, idempotency and cursor SSE."""
 import uuid
 import pytest
+from asgiref.sync import async_to_sync
 from django.core.management import call_command
 from rest_framework.test import APIClient
 
@@ -49,6 +50,13 @@ def session(client, agent):
     }, format="json")
     assert response.status_code == 201, response.data
     return response.data["data"]["id"]
+
+
+async def _consume_stream(content):
+    chunks = []
+    async for part in content:
+        chunks.append(part if isinstance(part, bytes) else part.encode("utf-8"))
+    return b"".join(chunks).decode("utf-8")
 
 
 def send(client, sid, msg, key):
@@ -141,13 +149,13 @@ def test_sse_replay_id_and_terminal_finish(setup_chat):
     response = client.get(url + "?after=2")
     assert response.status_code == 200
     assert response.streaming
-    body = b"".join(response.streaming_content).decode("utf-8")
+    body = async_to_sync(_consume_stream)(response.streaming_content)
     assert "id: 3" in body
     assert "event: run-event" in body
     assert "event: stream-end" in body
     assert "id: 1\n" not in body
     replay = client.get(url, HTTP_LAST_EVENT_ID="4")
-    replay_text = b"".join(replay.streaming_content).decode("utf-8")
+    replay_text = async_to_sync(_consume_stream)(replay.streaming_content)
     assert "id: 5\n" in replay_text
     assert "id: 4\n" not in replay_text
     assert client.get(url + "?after=-1").status_code == 400
