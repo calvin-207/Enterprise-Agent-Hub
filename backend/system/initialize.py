@@ -107,7 +107,7 @@ class Initialize:
         menu_definitions = [
             {"code": "4a7a7748387f44dbab72027d8bdc87f7", "parent_code": None, "icon": "House", "name": "工作台", "sort": 10, "type": 1, "web_path": "/home", "component_name": "home"},
             {"code": "44662b7fe6b54395994f28ed88eaf3f0", "parent_code": None, "icon": "Message", "name": "我的消息", "sort": 20, "type": 1, "web_path": "/myMessage", "component_name": "myMessage"},
-            {"code": "eah-model-config-p2a", "parent_code": None, "icon": "Settings2", "name": "模型配置", "sort": 34, "type": 1, "web_path": "/modelManage", "component_name": "modelManage"},
+            {"code": "eah-model-config-p2a", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Settings2", "name": "AI 模型管理", "sort": 15, "type": 1, "web_path": "/modelManage", "component_name": "modelManage"},
             {"code": "eah-agent-chat-p2b", "parent_code": None, "icon": "MessagesSquare", "name": "Agent 会话", "sort": 37, "type": 1, "web_path": "/agentChat", "component_name": "agentChat"},
             {"code": "eah-agent-runs-p1c", "parent_code": None, "icon": "Activity", "name": "Agent 执行", "sort": 36, "type": 1, "web_path": "/agentRuns", "component_name": "agentRuns"},
             {"code": "eah-agent-manage-p1a", "parent_code": None, "icon": "Cpu", "name": "Agent 管理", "sort": 35, "type": 1, "web_path": "/agentManage", "component_name": "agentManage"},
