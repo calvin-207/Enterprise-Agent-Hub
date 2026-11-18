@@ -4,7 +4,7 @@
 
 > 使用 AI Agent 驱动既有 ERP、OA、CRM 等业务系统，在企业权限和业务规则约束下完成可审计、可恢复的业务操作。
 
-**当前状态：V1.0 产品与架构设计阶段，尚未实现完整运行产品。**
+**当前状态（2026-11-18）：Django/Vue 基础管理系统和 Celery/Cron 自动化任务 V2 已实现；Agent Runtime、Tool Gateway、业务审批与完整治理功能处于架构设计阶段。**
 
 ## 项目愿景
 
@@ -80,6 +80,9 @@ flowchart TB
 
 ## 文档导航
 
+- **[平台层架构设计 V1（最新实施基线）](docs/platform-architecture/README.md)**：模块边界、数据模型、API、状态机、权限、安全及 Codex 分阶段任务
+- [已实现的自动化任务 / Cron 调度 V2](docs/development/automation-scheduler.md)
+
 - [产品说明书（PRD V1.0）](docs/product/PRD-V1.md)
 - [总体技术架构](docs/architecture/overview.md)
 - [Django Channels 实时通信设计](docs/architecture/realtime-communication.md)
@@ -94,4 +97,4 @@ V1 **不包含**：完整 ERP、拖拽式流程设计器、通用 SaaS 多租户
 
 ## 开源说明
 
-仓库目前是设计基线；演示场景使用虚构数据。实际代码、部署脚本和测试将按 [ROADMAP](ROADMAP.md) 逐步提交。开源许可证将在依赖及知识产权核查后确定，欢迎通过 Issues 提出改进建议。
+仓库已有可运行的基础管理代码与 Automation V2；以上 Agent、Tool、审批与审计模块仍是目标架构，不能视作已上线功能。演示场景将使用虚构数据。新开发按 [平台架构设计 V1](docs/platform-architecture/README.md) 和 [ROADMAP](ROADMAP.md) 分阶段提交。开源许可证将在依赖及知识产权核查后确定，欢迎通过 Issues 提出改进建议。
