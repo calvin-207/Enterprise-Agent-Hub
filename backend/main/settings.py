@@ -61,7 +61,7 @@ INSTALLED_APPS = [
     "automation",
     "model_gateway",
     "tool_gateway",
-    "agents",
+    "agent_catalog.apps.AgentsConfig",
     "agent_runtime",
     "django_celery_beat",
     "apps.leemessages",
