@@ -10,12 +10,12 @@ def test_menu_initialization_has_real_pages_and_is_idempotent():
     initializer = Initialize()
     initializer.init_menu()
     first_count = Menu.objects.count()
-    assert first_count == 17
+    assert first_count == 18
 
     expected = {
         "home", "myMessage", "PersonalCenter", "buserManage",
         "deptManage", "roleManage", "menuManage", "authorityManage",
-        "journalManage", "loginLogs", "taskExecutions", "taskSchedules", "systemConfig",
+        "journalManage", "loginLogs", "agentManage", "taskExecutions", "taskSchedules", "systemConfig",
         "sysDictionary", "messagNotice",
     }
     assert set(Menu.objects.filter(type=1).values_list("component_name", flat=True)) == expected
