@@ -31,7 +31,7 @@ unset INITIAL_SUPERUSER_PASSWORD
 
 也可以不设置环境变量，先执行 `python manage.py init`，随后运行 `python manage.py changepassword SuperAdmin` 创建初始密码。
 
-仅初始化已有功能的菜单：首页工作台、消息中心、组织与权限、系统配置；Agent 业务菜单将在真实页面与 API 开发完成后添加。
+仅初始化已有功能的菜单：首页工作台、消息中心、组织与权限、自动化任务、定时任务计划和系统配置；Agent 业务菜单将在实际页面与 API 开发完成后添加。
 
 不要在已有业务数据库上使用 `python manage.py init -y` 进行破坏性重置。
 
@@ -54,8 +54,8 @@ daphne -b 0.0.0.0 -p 8000 --proxy-headers main.asgi:application
 
 ```bash
 celery -A main worker --loglevel=info --concurrency=2
-# 可选：在另外一个终端运行 Beat
-CELERY_ENABLE_HEALTHCHECK_SCHEDULE=true celery -A main beat --loglevel=info
+# 单独运行数据库调度 Beat（一个环境仅部署一个）
+celery -A main beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
 ```
 
-使用 `python manage.py shell` 运行 `from system.tasks import ping; ping.delay()` 验证任务派发。详见 [Celery 配置、部署与任务开发说明](../docs/development/celery.md)。
+使用 `python manage.py shell` 运行 `from system.tasks import ping; ping.delay()` 验证任务派发。详见 [Celery 配置、部署与任务开发说明](../docs/development/celery.md) 和 [定时任务计划 V2 使用指南](../docs/development/automation-scheduler.md)。
