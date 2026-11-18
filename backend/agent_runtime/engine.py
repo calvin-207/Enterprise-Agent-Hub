@@ -5,7 +5,8 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
-from agent_runtime.adapter import make_adapter, RunBudgetExceeded
+from agent_runtime.adapter import make_adapter, RunBudgetExceeded, ModelUnavailable
+from model_gateway.models import ModelProfile
 from agent_runtime.accounting import save_usage
 from agent_runtime.services import RunCancelled
 from agent_runtime.models import AgentRun, RunEvent, RunStep
@@ -56,6 +57,8 @@ def perform_run(run_id, lease):
             raise RunBudgetExceeded("任务租约已撤销")
         if current.deadline_at and timezone.now() >= current.deadline_at:
             raise RunBudgetExceeded("执行已超时")
+        if not ModelProfile.objects.filter(pk=version.model_profile_id, enabled=True, provider__enabled=True).exists():
+            raise ModelUnavailable("模型配置已停用")
 
     def on_tool(code, arguments):
         nonlocal calls
