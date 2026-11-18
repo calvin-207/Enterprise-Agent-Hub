@@ -7,8 +7,8 @@ from django.db import IntegrityError, transaction
 from django.db.models import Max
 from django.utils import timezone
 
-from agents.models import Agent, AgentVersion
-from agents.services import allowed_tool_ids, is_granted
+from agent_catalog.models import Agent, AgentVersion
+from agent_catalog.services import allowed_tool_ids, is_granted
 from agent_runtime.models import AgentRun, RunEvent, RunStep, DispatchOutbox
 
 
