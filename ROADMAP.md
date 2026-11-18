@@ -1,6 +1,6 @@
 # Roadmap / Enterprise Agent Hub 开发路线图
 
-> 更新时间：2026-11-18。当前**已实现**基础系统（Django/DRF/Vue、用户角色菜单）与 Automation V2（Celery、Redis、django-celery-beat、自动化任务与 Cron 管理页面）；Agent Runtime P1-C 的 Mock 模型、只读 Tool Gateway 及执行追踪已实现；真实 OpenAI SDK Adapter 已接入但尚需真实密钥/模型联调。P2-A 已增加管理员模型配置、Token 费用估算、协作取消和入队限额。治理审批、业务写操作和 Workflow **尚未实现**。
+> 更新时间：2026-11-18。当前**已实现**基础系统（Django/DRF/Vue、用户角色菜单）与 Automation V2（Celery、Redis、django-celery-beat、自动化任务与 Cron 管理页面）；Agent Runtime P1-C 的 Mock 模型、只读 Tool Gateway 及执行追踪已实现；真实 OpenAI SDK Adapter 已接入但尚需真实密钥/模型联调。P2-A 已增加管理员模型配置、Token 费用估算、协作取消和入队限额；P2-B 已实现 Session/Message、上下文和可恢复的 SSE 状态事件。治理审批、业务写操作和 Workflow **尚未实现**。
 >
 > **架构基线**：[docs/platform-architecture/README.md](docs/platform-architecture/README.md)；**Codex 任务与验收**：[06-codex-delivery-plan.md](docs/platform-architecture/06-codex-delivery-plan.md)。
 
@@ -17,7 +17,8 @@
 - P1-B：AgentRun、RunStep、RunEvent、DispatchOutbox、可靠派发和状态机已提交。
 - P1-C：已接入 OpenAI Agents SDK 适配器、离线 Mock Agent Loop、每次鉴权的只读 Tool Gateway、任务结果与执行轨迹，新增 Agent 执行前端页面。
 - 完整说明：[P1-B](docs/platform-architecture/09-p1b-implementation.md) · [P1-C](docs/platform-architecture/10-p1c-runtime-implementation.md)。
-- P2-A：Provider/ModelProfile 管理、环境变量密钥引用、ModelUsage Token/费用估算、用户配额、协作取消及前端页面已提交。详见 [P2-A 文档](docs/platform-architecture/11-p2a-model-governance.md)。\n- **尚未完成：** 实际付费模型联调与账单核对、完整运行成本预算/报警、会话、工作流、业务写操作审批与多步恢复。
+- P2-A：Provider/ModelProfile 管理、环境变量密钥引用、ModelUsage Token/费用估算、用户配额、协作取消及前端页面已提交。详见 [P2-A 文档](docs/platform-architecture/11-p2a-model-governance.md)。\n- P2-B：会话/消息持久化、单会话串行、有限历史上下文、事件游标 SSE + REST 回补、前端连续对话工作台已提交。详见 [P2-B 文档](docs/platform-architecture/12-p2b-session-and-event-stream.md)。
+- **尚未完成：** 实际付费模型联调与账单核对、模型 Token 逐字流式推送、高并发推送基础设施、费用告警、工作流、业务写操作审批与多步恢复。
 
 ## 平台优先建设顺序
 
