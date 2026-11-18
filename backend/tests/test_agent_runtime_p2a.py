@@ -149,7 +149,7 @@ def test_provider_admin_only_and_never_accepts_raw_secret(users):
     assert staff_client.post(url, {"code": "test", "name": "Test"}, format="json").status_code == 403
     assert admin_client.post(url, {
         "code": "myopenai", "name": "Provider", "adapter_type": "openai",
-        "api_key": "secret-value", "enabled": True,
+        "plaintext_secret": "secret-value", "enabled": True,
     }, format="json").status_code == 400
     assert admin_client.post(url, {
         "code": "myopenai", "name": "Provider", "adapter_type": "openai",
