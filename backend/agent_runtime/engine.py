@@ -6,6 +6,8 @@ from django.db.models import Max
 from django.utils import timezone
 
 from agent_runtime.adapter import make_adapter, RunBudgetExceeded
+from agent_runtime.accounting import save_usage
+from agent_runtime.services import RunCancelled
 from agent_runtime.models import AgentRun, RunEvent, RunStep
 from agent_runtime.services import finish_run
 from tool_gateway.executor import invoke_read_tool
@@ -48,6 +50,8 @@ def perform_run(run_id, lease):
 
     def check_budget():
         current = AgentRun.objects.only("status", "lease_token", "deadline_at").get(pk=run_id)
+        if current.status == AgentRun.Status.CANCEL_REQUESTED and current.lease_token == lease:
+            raise RunCancelled("任务已请求取消")
         if current.status != AgentRun.Status.RUNNING or current.lease_token != lease:
             raise RunBudgetExceeded("任务租约已撤销")
         if current.deadline_at and timezone.now() >= current.deadline_at:
@@ -81,4 +85,5 @@ def perform_run(run_id, lease):
         "mock": result.get("mock", False),
         "usage": result.get("usage", {}),
     })
+    save_usage(run, version, result.get("usage", {}))
     return result
