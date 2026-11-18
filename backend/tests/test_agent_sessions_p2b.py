@@ -102,6 +102,13 @@ def test_session_owner_only_even_for_superadmin(setup_chat):
         assert client.patch(f"/api/platform/v1/sessions/{sid}/", {"title": "steal"}, format="json").status_code == 404
     assert auth(alice).get("/api/platform/v1/sessions/").status_code == 200
     assert auth(bob).get("/api/platform/v1/sessions/").data["data"] == []
+    run_id = first.data["data"]["id"]
+    # Session history stays private even if the caller is platform admin.
+    for user in (admin, bob):
+        c = auth(user)
+        assert c.get(f"/api/platform/v1/runs/{run_id}/").status_code == 404
+        assert c.get(f"/api/platform/v1/runs/{run_id}/events/").status_code == 404
+        assert c.get(f"/api/platform/v1/runs/{run_id}/stream/").status_code == 404
 
 
 @pytest.mark.django_db
