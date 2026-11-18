@@ -16,9 +16,13 @@ class InvalidModelOutput(Exception):
 
 class MockRuntimeAdapter:
     """A deterministic two-step model/tool loop for integration tests and demos."""
-    def run(self, *, version, actor, message, on_tool, check_budget):
+    def run(self, *, version, actor, message, on_tool, check_budget, history=None):
         check_budget()
-        month = "2026-09" if "9月" in message or "09" in message else "2026-10"
+        prior_user = next((m["content"] for m in reversed(history or [])
+                           if m["role"] == "user"), "")
+        followup = any(x in message for x in ("刚才", "上次", "之前", "继续", "上一", "那个月"))
+        source = prior_user if followup and not any(x in message for x in ("9月", "10月", "09", "10")) else message
+        month = "2026-09" if "9月" in source or "09" in source else "2026-10"
         evidence = on_tool("mock_sales_summary", {"month": month})
         check_budget()
         if evidence["previous_total"] is not None:
@@ -36,7 +40,7 @@ class MockRuntimeAdapter:
 
 class OpenAIAgentsAdapter:
     """Real SDK runner. SDK controls LLM turns, Gateway remains tool authorization authority."""
-    def run(self, *, version, actor, message, on_tool, check_budget):
+    def run(self, *, version, actor, message, on_tool, check_budget, history=None):
         if version.model_profile.provider.adapter_type != "openai":
             raise ModelUnavailable("未启用受信任的 OpenAI Provider")
         provider_config = version.model_profile.provider
@@ -62,8 +66,12 @@ class OpenAIAgentsAdapter:
             tools=[mock_sales_summary],
         )
         # SDK tracing defaults to transmitting model/tool content; disable it here.
+        sdk_input = ([
+            {"role": entry["role"], "content": entry["content"]}
+            for entry in (history or [])
+        ] + [{"role": "user", "content": message}]) if history else message
         result = Runner.run_sync(
-            agent, message, max_turns=4,
+            agent, sdk_input, max_turns=4,
             run_config=RunConfig(tracing_disabled=True, model_provider=OpenAIProvider(api_key=key)),
         )
         check_budget()
