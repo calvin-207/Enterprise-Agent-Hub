@@ -4,7 +4,7 @@
 
 > 使用 AI Agent 驱动既有 ERP、OA、CRM 等业务系统，在企业权限和业务规则约束下完成可审计、可恢复的业务操作。
 
-**当前状态（2026-11-18）：Django/Vue 基础管理系统和 Celery/Cron 自动化任务 V2 已实现；Agent Runtime P1-C 的 Mock 只读闭环和执行中心已实现；P2-A 模型管理、用量估算与任务取消已接入；P2-B 持久会话、上下文和 SSE 执行状态订阅已实现；真实付费模型仍需配置密钥进行端到端联调，业务写入审批与完整治理仍待开发。**
+**当前状态（2026-11-18）：Django/Vue 基础管理系统和 Celery/Cron 自动化任务 V2 已实现；Agent Runtime P1-C 的 Mock 只读闭环和执行中心已实现；P2-A 模型管理、用量估算与任务取消已接入；P2-B 持久会话、上下文和 SSE 执行状态订阅已实现；系统配置 → AI 模型管理支持供应商模型同步、加密密钥及本地二次配置；真实付费模型仍需配置密钥进行端到端联调，业务写入审批与完整治理仍待开发。**
 
 ## 项目愿景
 
@@ -85,6 +85,7 @@ flowchart TB
 - **[已实现的 Agent Runtime P1-C 与首次部署](docs/platform-architecture/10-p1c-runtime-implementation.md)**
 - **[P2-A 模型配置、用量估算与运行治理](docs/platform-architecture/11-p2a-model-governance.md)**
 - **[P2-B 持久会话、上下文和 SSE 事件流](docs/platform-architecture/12-p2b-session-and-event-stream.md)**
+- **[AI 模型管理与供应商同步模型](docs/platform-architecture/13-model-sync-management.md)**
 
 - [产品说明书（PRD V1.0）](docs/product/PRD-V1.md)
 - [总体技术架构](docs/architecture/overview.md)
