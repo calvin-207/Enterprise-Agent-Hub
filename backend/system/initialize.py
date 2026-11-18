@@ -107,7 +107,6 @@ class Initialize:
         menu_definitions = [
             {"code": "4a7a7748387f44dbab72027d8bdc87f7", "parent_code": None, "icon": "House", "name": "工作台", "sort": 10, "type": 1, "web_path": "/home", "component_name": "home"},
             {"code": "44662b7fe6b54395994f28ed88eaf3f0", "parent_code": None, "icon": "Message", "name": "我的消息", "sort": 20, "type": 1, "web_path": "/myMessage", "component_name": "myMessage"},
-            {"code": "eah-model-config-p2a", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Settings2", "name": "AI 模型管理", "sort": 15, "type": 1, "web_path": "/modelManage", "component_name": "modelManage"},
             {"code": "eah-agent-chat-p2b", "parent_code": None, "icon": "MessagesSquare", "name": "Agent 会话", "sort": 37, "type": 1, "web_path": "/agentChat", "component_name": "agentChat"},
             {"code": "eah-agent-runs-p1c", "parent_code": None, "icon": "Activity", "name": "Agent 执行", "sort": 36, "type": 1, "web_path": "/agentRuns", "component_name": "agentRuns"},
             {"code": "eah-agent-manage-p1a", "parent_code": None, "icon": "Cpu", "name": "Agent 管理", "sort": 35, "type": 1, "web_path": "/agentManage", "component_name": "agentManage"},
@@ -123,6 +122,7 @@ class Initialize:
             {"code": "24d2eb79a21141afbe73058cc02545e0", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "Document", "name": "操作日志", "sort": 60, "type": 1, "web_path": "/journalManage", "component_name": "journalManage"},
             {"code": "a8b435647f0b4a3f852ec796433e8919", "parent_code": "af862854dc44410d84b8b2ae5c16c90d", "icon": "Tickets", "name": "登录日志", "sort": 70, "type": 1, "web_path": "/loginLogs", "component_name": "loginLogs"},
             {"code": "563092a536194a1493551a0043f1f1a3", "parent_code": None, "icon": "Tools", "name": "系统配置", "sort": 70, "type": 0, "web_path": "/systemToolsMgDirs", "component_name": ""},
+            {"code": "eah-model-config-p2a", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Settings2", "name": "AI 模型管理", "sort": 15, "type": 1, "web_path": "/modelManage", "component_name": "modelManage"},
             {"code": "6354ba32ae734b5eaa799a65f76deee6", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Setting", "name": "平台设置", "sort": 10, "type": 1, "web_path": "/systemConfig", "component_name": "systemConfig"},
             {"code": "205910763e0e42fbbc12833d2f7d61bb", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Reading", "name": "数据字典", "sort": 20, "type": 1, "web_path": "/sysDictionary", "component_name": "sysDictionary"},
             {"code": "4f947108c5bf44f2b97e4a80daebf772", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Bell", "name": "通知公告", "sort": 30, "type": 1, "web_path": "/messagNotice", "component_name": "messagNotice"},
