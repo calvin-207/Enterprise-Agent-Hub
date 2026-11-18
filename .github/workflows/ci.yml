@@ -47,7 +47,7 @@ jobs:
       - name: Configure test environment
         run: cp config.py_template config.py
       - name: Python syntax check
-        run: python -m compileall -q main system utils apps tests
+        run: python -m compileall -q main system utils apps automation agents model_gateway tool_gateway tests
       - name: Django system checks
         run: python manage.py check --settings=test_settings
       - name: Verify model migrations are committed
@@ -55,7 +55,7 @@ jobs:
       - name: Backend tests with coverage and JUnit
         run: |
           mkdir -p test-results
-          pytest -q --junitxml=test-results/pytest.xml --cov=system --cov=utils --cov=apps --cov-report=xml:test-results/coverage.xml --cov-report=term-missing
+          pytest -q --junitxml=test-results/pytest.xml --cov=system --cov=utils --cov=apps --cov=agents --cov=model_gateway --cov=tool_gateway --cov-report=xml:test-results/coverage.xml --cov-report=term-missing
       - name: Celery Redis / worker integration smoke test
         env:
           CELERY_BROKER_URL: redis://127.0.0.1:6379/3
