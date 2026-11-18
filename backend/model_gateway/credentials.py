@@ -36,4 +36,5 @@ def decrypt_api_key(value):
 def get_provider_key(provider):
     if provider.encrypted_api_key:
         return decrypt_api_key(provider.encrypted_api_key)
-    return resolve_secret(provider.secret_ref)
+    fallback = "env:OPENAI_API_KEY" if provider.adapter_type == "openai" else ""
+    return resolve_secret(provider.secret_ref or fallback)
