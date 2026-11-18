@@ -20,6 +20,9 @@ class ModelProfile(models.Model):
     model_code = models.CharField(max_length=120)
     enabled = models.BooleanField(default=False)
     configuration = models.JSONField(default=dict, blank=True)
+    input_price_per_million = models.DecimalField(max_digits=14, decimal_places=6, default=0)
+    output_price_per_million = models.DecimalField(max_digits=14, decimal_places=6, default=0)
+    max_output_tokens = models.PositiveIntegerField(default=1024)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
