@@ -80,6 +80,8 @@ flowchart TB
 
 ## 文档导航
 
+- **[本地部署与功能验收指南（macOS，推荐先读）](docs/development/本地部署与功能验收指南.md)**：后端、前端、Redis、Worker、Agent Mock、模型同步和真实供应商测试完整步骤
+
 - **[平台层架构设计 V1（最新实施基线）](docs/platform-architecture/README.md)**：模块边界、数据模型、API、状态机、权限、安全及 Codex 分阶段任务
 - [已实现的自动化任务 / Cron 调度 V2](docs/development/automation-scheduler.md)
 - **[已实现的 Agent Runtime P1-C 与首次部署](docs/platform-architecture/10-p1c-runtime-implementation.md)**
