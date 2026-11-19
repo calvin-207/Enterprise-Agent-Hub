@@ -28,7 +28,7 @@ from django.db import connection
 from django.utils import timezone
 from rest_framework.permissions import IsAdminUser
 from rest_framework.views import APIView
-from utils.jsonResponse import DetailResponse
+from utils.jsonResponse import DetailResponse, ErrorResponse
 
 try:
     import psutil
@@ -45,6 +45,12 @@ REDIS_LATENCY_WARN_MS, REDIS_LATENCY_ERROR_MS = 50, 200
 HEARTBEAT_FRESH_SECONDS = 180
 HEARTBEAT_STALE_SECONDS = 900
 INSPECT_TIMEOUT_SECONDS = 1.0
+
+# 日志查看：目录、单次返回行数上限、单块读取大小
+LOGS_DIR = os.path.join(settings.BASE_DIR, "logs")
+LOG_DEFAULT_LINES = 200
+LOG_MAX_LINES = 500
+LOG_MAX_FILES = 30
 
 OPS_BEAT_KEY = "ops:beat_hb"
 OPS_WORKER_KEY = "ops:worker_hb"
@@ -584,6 +590,196 @@ class OpsOverviewView(APIView):
                     "disk": {"warn": DISK_WARN, "error": DISK_ERROR},
                     "heartbeat_fresh_seconds": HEARTBEAT_FRESH_SECONDS,
                 },
+            },
+            msg="获取成功",
+        )
+
+
+# ================================================= #
+# ************** 系统日志查看（运维页 Tab） ************** #
+# ================================================= #
+
+
+def _decode_text(data):
+    """日志文件解码：优先 utf-8，兼容中文 Windows 下进程输出可能用的 GBK"""
+    for encoding in ("utf-8", "gbk"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("utf-8", errors="replace")
+
+
+def _list_log_files():
+    """枚举 logs 目录下的 .log 文件（按修改时间倒序），轮转分卷(.log.N)不展示"""
+    files = []
+    try:
+        names = os.listdir(LOGS_DIR)
+    except OSError:
+        return files
+    for name in names:
+        if not name.endswith(".log"):
+            continue
+        path = os.path.join(LOGS_DIR, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            stat = os.stat(path)
+        except OSError:
+            continue
+        files.append(
+            {
+                "name": name,
+                "size": stat.st_size,
+                "size_text": _human_bytes(stat.st_size),
+                "mtime": datetime.fromtimestamp(stat.st_mtime).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
+                "_sort": stat.st_mtime,
+            }
+        )
+    files.sort(key=lambda item: item["_sort"], reverse=True)
+    for item in files:
+        item.pop("_sort", None)
+    return files[:LOG_MAX_FILES]
+
+
+def _tail_lines(path, limit):
+    """从文件尾部按块回读最后 limit 行；大文件（轮转上限 20MB）不全量读入内存"""
+    try:
+        with open(path, "rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            remaining = handle.tell()
+            buf = b""
+            while remaining > 0 and buf.count(b"\n") <= limit:
+                step = min(8192, remaining)
+                remaining -= step
+                handle.seek(remaining)
+                buf = handle.read(step) + buf
+        lines = _decode_text(buf).splitlines()
+        return lines[-limit:]
+    except OSError:
+        return []
+
+
+class OpsLogsView(APIView):
+    """
+    get:
+    运维管理 —— 系统日志查看（仅限管理端员工）
+
+    无 file 参数：返回可查看的日志文件列表；
+    file + lines：返回该文件末尾 N 行（1-500），关键字过滤由前端完成。
+    文件名只允许精确匹配已枚举的日志文件，天然拒绝路径穿越。
+    """
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        files = _list_log_files()
+        file_name = (request.query_params.get("file") or "").strip()
+        if not file_name:
+            return DetailResponse(data={"files": files}, msg="获取成功")
+
+        matched = next((item for item in files if item["name"] == file_name), None)
+        if matched is None:
+            return ErrorResponse(msg="日志文件不存在或不可读", code=400)
+
+        try:
+            lines_limit = int(request.query_params.get("lines", LOG_DEFAULT_LINES))
+        except (TypeError, ValueError):
+            lines_limit = LOG_DEFAULT_LINES
+        lines_limit = min(max(lines_limit, 1), LOG_MAX_LINES)
+
+        lines = _tail_lines(os.path.join(LOGS_DIR, file_name), lines_limit)
+        return DetailResponse(
+            data={"file": matched, "lines": lines, "requested": lines_limit},
+            msg="获取成功",
+        )
+
+
+# ================================================= #
+# ************** Worker 节点详情（点击下钻） ************** #
+# ================================================= #
+
+
+def _format_active_task(task):
+    """归一化 inspect.active 返回的单条任务，超长参数截断避免撑爆响应"""
+    args = task.get("args")
+    if isinstance(args, (list, tuple)):
+        args = ", ".join(str(arg) for arg in args)
+    args = str(args or "")
+    time_start = task.get("time_start")
+    if isinstance(time_start, (int, float)):
+        time_start = datetime.fromtimestamp(time_start).strftime("%Y-%m-%d %H:%M:%S")
+    return {
+        "id": str(task.get("id") or "")[:36],
+        "name": task.get("name") or "未知任务",
+        "args": args[:200] + ("…" if len(args) > 200 else ""),
+        "time_start": time_start,
+        "worker_pid": task.get("worker_pid"),
+        "acknowledged": task.get("acknowledged"),
+    }
+
+
+class OpsWorkerDetailView(APIView):
+    """
+    get:
+    运维管理 —— 单个 Celery Worker 节点详情（仅限管理端员工）
+
+    ?name=celery@host：定向 inspect 该节点的 stats/active/scheduled/reserved/registered，
+    并叠加心跳上报的环境与版本信息；节点离线时返回 online=False 与最后心跳。
+    """
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        name = (request.query_params.get("name") or "").strip()
+        if not name:
+            return ErrorResponse(msg="缺少 name 参数", code=400)
+
+        from main.celery import app as celery_app
+
+        inspector = celery_app.control.inspect(
+            timeout=INSPECT_TIMEOUT_SECONDS, destination=[name]
+        )
+        stats = active = scheduled = reserved = registered = None
+        try:
+            online = bool(inspector.ping())
+            if online:
+                stats = (inspector.stats() or {}).get(name)
+                active = (inspector.active() or {}).get(name)
+                scheduled = (inspector.scheduled() or {}).get(name)
+                reserved = (inspector.reserved() or {}).get(name)
+                registered = (inspector.registered() or {}).get(name)
+        except Exception:
+            online = False
+
+        _, worker_hb, worker_meta, _ = _read_heartbeats()
+        hb_at = worker_hb.get(name.lower())
+        meta = worker_meta.get(name.lower()) or {}
+        stats = stats or {}
+        pool = stats.get("pool") or {}
+        total = {k: v for k, v in (stats.get("total") or {}).items() if isinstance(v, (int, float))}
+
+        return DetailResponse(
+            data={
+                "name": name,
+                "online": online,
+                "env": meta.get("env"),
+                "version": meta.get("version"),
+                "last_heartbeat": hb_at.strftime("%Y-%m-%d %H:%M:%S") if hb_at else None,
+                "heartbeat_age": round((timezone.now() - hb_at).total_seconds()) if hb_at else None,
+                "concurrency": pool.get("max-concurrency"),
+                "processes": pool.get("processes"),
+                "pid": stats.get("pid"),
+                "uptime_seconds": stats.get("uptime"),
+                "total_tasks": sum(total.values()),
+                "top_tasks": sorted(total.items(), key=lambda kv: kv[1], reverse=True)[:8],
+                "active": [_format_active_task(t) for t in (active or [])],
+                "active_count": len(active or []),
+                "scheduled_count": len(scheduled or []),
+                "reserved_count": len(reserved or []),
+                "registered_count": len(registered or []),
             },
             msg="获取成功",
         )

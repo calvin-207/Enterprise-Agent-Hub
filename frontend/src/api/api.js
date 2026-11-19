@@ -267,6 +267,12 @@ Api.readOwnMessage = (params) =>
 //运维管理 —— 平台运行状态概览
 Api.apiSystemOpsOverview = (params) =>
   ajaxGet({ url: `/api/system/ops/overview/`, params });
+//运维管理 —— 系统日志文件列表 / 指定文件尾部日志
+Api.apiSystemOpsLogs = (params) =>
+  ajaxGet({ url: `/api/system/ops/logs/`, params });
+//运维管理 —— 单个 Worker 节点详情
+Api.apiSystemOpsWorkerDetail = (params) =>
+  ajaxGet({ url: `/api/system/ops/worker_detail/`, params });
 
 
 /**

@@ -195,3 +195,157 @@ def test_percent_threshold_judgement():
     assert _judge_percent(75, 75, 90) == "warn"
     assert _judge_percent(90, 90, 90) == "error"
     assert _judge_percent(None, 75, 90) == "error"
+
+
+# ================================================= #
+# ************** 系统日志查看接口 ************** #
+# ================================================= #
+
+
+@pytest.mark.django_db
+def test_ops_logs_requires_authentication():
+    client = APIClient()
+    response = client.get("/api/system/ops/logs/")
+    assert response.status_code == 200
+    assert response.json()["code"] == 4001
+
+
+@pytest.mark.django_db
+def test_ops_logs_lists_log_files_and_tails_content(admin_user, monkeypatch, tmp_path):
+    from system.views import ops as ops_module
+
+    (tmp_path / "server.log").write_text("line1\nline2\nline3\n", encoding="utf-8")
+    (tmp_path / "notes.txt").write_text("ignored", encoding="utf-8")  # 非 .log 不展示
+    monkeypatch.setattr(ops_module, "LOGS_DIR", str(tmp_path))
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+
+    response = client.get("/api/system/ops/logs/")
+    files = response.json()["data"]["files"]
+    assert [f["name"] for f in files] == ["server.log"]
+
+    response = client.get("/api/system/ops/logs/", {"file": "server.log", "lines": 2})
+    data = response.json()["data"]
+    assert data["lines"] == ["line2", "line3"]  # 从尾部截取
+    assert data["file"]["name"] == "server.log"
+
+
+@pytest.mark.django_db
+def test_ops_logs_rejects_unknown_or_traversal_filename(admin_user, monkeypatch, tmp_path):
+    from system.views import ops as ops_module
+
+    monkeypatch.setattr(ops_module, "LOGS_DIR", str(tmp_path))
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+
+    for bad in ("../settings.py", "not-exist.log", "sub/../../main/settings.py"):
+        response = client.get("/api/system/ops/logs/", {"file": bad})
+        assert response.json()["code"] == 400, bad
+
+
+@pytest.mark.django_db
+def test_ops_logs_caps_requested_lines(admin_user, monkeypatch, tmp_path):
+    from system.views import ops as ops_module
+
+    (tmp_path / "big.log").write_text(
+        "".join(f"row-{i}\n" for i in range(1000)), encoding="utf-8"
+    )
+    monkeypatch.setattr(ops_module, "LOGS_DIR", str(tmp_path))
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+
+    # 超过上限 500 行被收敛；非法值回退默认
+    response = client.get("/api/system/ops/logs/", {"file": "big.log", "lines": 99999})
+    assert len(response.json()["data"]["lines"]) == 500
+    response = client.get("/api/system/ops/logs/", {"file": "big.log", "lines": "abc"})
+    assert len(response.json()["data"]["lines"]) == 200
+
+
+# ================================================= #
+# ************** Worker 节点详情接口 ************** #
+# ================================================= #
+
+
+@pytest.mark.django_db
+def test_ops_worker_detail_requires_name(admin_user):
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+    response = client.get("/api/system/ops/worker_detail/")
+    assert response.status_code == 200
+    assert response.json()["code"] == 400
+
+
+@pytest.mark.django_db
+def test_ops_worker_detail_summarizes_inspect_data(admin_user, monkeypatch):
+    from main.celery import app as celery_app
+    from system.views import ops as ops_module
+
+    name = "celery@testhost"
+    inspector = MagicMock()
+    inspector.ping.return_value = {name: {"ok": "pong"}}
+    inspector.stats.return_value = {
+        name: {
+            "pool": {"max-concurrency": 2, "processes": [11, 12]},
+            "total": {"task.a": 5, "task.b": 1},
+            "uptime": 7200,
+        }
+    }
+    inspector.active.return_value = {
+        name: [
+            {
+                "id": "t1",
+                "name": "task.a",
+                "args": [1, 2],
+                "time_start": 1700000000.0,
+                "worker_pid": 11,
+                "acknowledged": True,
+            }
+        ]
+    }
+    inspector.scheduled.return_value = {name: []}
+    inspector.reserved.return_value = {name: [{"id": "t2"}]}
+    inspector.registered.return_value = {name: ["task.a", "task.b"]}
+    monkeypatch.setattr(celery_app.control, "inspect", MagicMock(return_value=inspector))
+    monkeypatch.setattr(ops_module, "_read_heartbeats", lambda: (None, {}, {}, None))
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+    response = client.get("/api/system/ops/worker_detail/", {"name": name})
+    data = response.json()["data"]
+    assert data["online"] is True
+    assert data["concurrency"] == 2
+    assert data["total_tasks"] == 6
+    assert data["top_tasks"][0] == ["task.a", 5]
+    assert data["active_count"] == 1
+    assert data["active"][0]["name"] == "task.a"
+    assert data["active"][0]["args"] == "1, 2"
+    assert data["reserved_count"] == 1
+    assert data["registered_count"] == 2
+    assert data["uptime_seconds"] == 7200
+
+
+@pytest.mark.django_db
+def test_ops_worker_detail_reports_offline_node(admin_user, monkeypatch):
+    from main.celery import app as celery_app
+    from django.utils import timezone as dj_tz
+    from system.views import ops as ops_module
+
+    inspector = MagicMock()
+    inspector.ping.return_value = None  # 无响应
+    monkeypatch.setattr(celery_app.control, "inspect", MagicMock(return_value=inspector))
+    hb = dj_tz.now()
+    monkeypatch.setattr(
+        ops_module,
+        "_read_heartbeats",
+        lambda: (None, {"celery@ghost": hb}, {"celery@ghost": {"env": "dev", "version": "v9"}}, None),
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=admin_user)
+    response = client.get("/api/system/ops/worker_detail/", {"name": "celery@ghost"})
+    data = response.json()["data"]
+    assert data["online"] is False
+    assert data["last_heartbeat"] == hb.strftime("%Y-%m-%d %H:%M:%S")
+    assert data["env"] == "dev" and data["version"] == "v9"
+    assert data["active_count"] == 0

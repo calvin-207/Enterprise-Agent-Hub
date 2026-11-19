@@ -5,103 +5,235 @@
         <p class="eyebrow">ENTERPRISE AGENT HUB / OPERATIONS</p>
         <h1>运维管理</h1>
         <p class="description">
-          汇总主机资源、数据库、Redis、Celery Worker 与 Beat 的运行状态，及时发现阻塞、超时与容量隐患。
+          汇总主机资源、数据库、Redis、Celery Worker 与 Beat 的运行状态，及时发现阻塞、超时与容量隐患；可下钻查看节点详情与系统日志。
         </p>
       </div>
       <div class="actions">
-        <el-select v-model="intervalSec" :disabled="!autoRefresh" style="width: 104px" aria-label="刷新间隔">
-          <el-option :value="10" label="10 秒" />
-          <el-option :value="30" label="30 秒" />
-          <el-option :value="60" label="60 秒" />
-        </el-select>
-        <el-switch v-model="autoRefresh" active-text="自动刷新" />
-        <el-button type="primary" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
+        <template v-if="activeTab === 'overview'">
+          <el-select v-model="intervalSec" :disabled="!autoRefresh" style="width: 104px" aria-label="刷新间隔">
+            <el-option :value="10" label="10 秒" />
+            <el-option :value="30" label="30 秒" />
+            <el-option :value="60" label="60 秒" />
+          </el-select>
+          <el-switch v-model="autoRefresh" active-text="自动刷新" />
+          <el-button type="primary" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
+        </template>
       </div>
     </header>
 
-    <el-alert
-      v-if="overview"
-      :type="overallType"
-      show-icon
-      :closable="false"
-      class="alert"
-      :title="overallTitle"
-    >
-      <div v-if="overview.risks.length" class="risks">
-        <p v-for="risk in overview.risks" :key="risk">• {{ risk }}</p>
-      </div>
-    </el-alert>
-    <el-alert
-      v-else-if="loadError"
-      type="error"
-      show-icon
-      :closable="false"
-      class="alert"
-      title="运行状态获取失败"
-      :description="loadError"
-    />
+    <el-tabs v-model="activeTab" class="ops-tabs">
+      <!-- ======================== 运行概览 ======================== -->
+      <el-tab-pane label="运行概览" name="overview">
+        <el-alert
+          v-if="overview"
+          :type="overallType"
+          show-icon
+          :closable="false"
+          class="alert"
+          :title="overallTitle"
+        >
+          <div v-if="overview.risks.length" class="risks">
+            <p v-for="risk in overview.risks" :key="risk">• {{ risk }}</p>
+          </div>
+        </el-alert>
+        <el-alert
+          v-else-if="loadError"
+          type="error"
+          show-icon
+          :closable="false"
+          class="alert"
+          title="运行状态获取失败"
+          :description="loadError"
+        />
 
-    <div v-if="overview" class="server-bar">
-      <span v-for="item in serverChips" :key="item.label" class="chip">
-        <span class="chip-k">{{ item.label }}</span>
-        <span class="chip-v" :title="item.value">{{ item.value }}</span>
-      </span>
-    </div>
+        <div v-if="overview" class="server-bar">
+          <span v-for="item in serverChips" :key="item.label" class="chip">
+            <span class="chip-k">{{ item.label }}</span>
+            <span class="chip-v" :title="item.value">{{ item.value }}</span>
+          </span>
+        </div>
 
-    <el-row v-if="overview" :gutter="16" class="cards">
-      <el-col v-for="card in overview.components" :key="card.key" :xs="24" :sm="12" :lg="8">
-        <el-card shadow="hover" class="ops-card" :class="'is-' + card.status">
-          <div class="card-head">
-            <span class="card-icon"><el-icon :size="18"><component :is="iconOf(card.key)" /></el-icon></span>
-            <h3>{{ card.title }}</h3>
-            <el-tag :type="tagType(card.status)" size="small" effect="light" class="card-tag">
-              {{ statusLabel(card.status) }}
+        <el-row v-if="overview" :gutter="16" class="cards">
+          <el-col v-for="card in overview.components" :key="card.key" :xs="24" :sm="12" :lg="8">
+            <el-card shadow="hover" class="ops-card" :class="'is-' + card.status">
+              <div class="card-head">
+                <span class="card-icon"><el-icon :size="18"><component :is="iconOf(card.key)" /></el-icon></span>
+                <h3>{{ card.title }}</h3>
+                <el-tag :type="tagType(card.status)" size="small" effect="light" class="card-tag">
+                  {{ statusLabel(card.status) }}
+                </el-tag>
+              </div>
+
+              <p class="card-message">{{ card.message }}</p>
+
+              <el-progress
+                v-if="card.percent !== undefined && card.percent !== null"
+                class="card-meter"
+                :percentage="card.percent"
+                :color="meterColor(card.status)"
+                :stroke-width="10"
+                :show-text="true"
+              />
+
+              <ul v-if="card.metrics && card.metrics.length" class="kv">
+                <li v-for="metric in card.metrics" :key="metric.label">
+                  <span class="k">{{ metric.label }}</span>
+                  <span class="v">{{ metric.value }}</span>
+                </li>
+              </ul>
+
+              <div v-if="card.key === 'celery_worker' && card.workers && card.workers.length" class="workers">
+                <button
+                  v-for="worker in card.workers"
+                  :key="worker.name"
+                  type="button"
+                  class="worker-row"
+                  title="点击查看节点详情"
+                  @click="openWorkerDetail(worker.name)"
+                >
+                  <el-icon :size="14" :color="worker.alive ? '#67C23A' : '#F56C6C'">
+                    <CircleCheckFilled v-if="worker.alive" />
+                    <CircleCloseFilled v-else />
+                  </el-icon>
+                  <span class="worker-name">{{ worker.name }}</span>
+                  <span class="worker-meta">
+                    并发 {{ worker.concurrency ?? "—" }} · 心跳 {{ formatHeartbeat(worker) }}<template v-if="worker.env"> · {{ formatWorkerIdentity(worker) }}</template>
+                  </span>
+                  <el-icon class="worker-arrow" :size="12"><ArrowRight /></el-icon>
+                  <el-tooltip
+                    v-if="workerMismatched(worker, card)"
+                    :content="`该 Worker 与当前服务环境/版本不一致（服务：${serviceMetric(card, '本服务环境') ?? '—'} ${serviceMetric(card, '本服务版本') ?? ''}），存在串环境或旧版本消费风险`"
+                  >
+                    <el-tag size="small" type="warning" effect="plain">不匹配</el-tag>
+                  </el-tooltip>
+                </button>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+
+        <footer v-if="overview" class="foot">
+          数据采集于 {{ overview.server.time }}；告警阈值：CPU ≥75% 注意 / ≥90% 异常，内存、磁盘 ≥80% 注意 / ≥90% 异常，心跳超时 180 秒。点击 Worker 节点可查看详情。
+        </footer>
+      </el-tab-pane>
+
+      <!-- ======================== 系统日志 ======================== -->
+      <el-tab-pane label="系统日志" name="logs" lazy>
+        <div class="log-toolbar">
+          <el-select
+            v-model="logFile"
+            filterable
+            placeholder="选择日志文件"
+            style="width: 300px"
+            :loading="logFilesLoading"
+            @change="loadLogs"
+          >
+            <el-option
+              v-for="file in logFiles"
+              :key="file.name"
+              :label="`${file.name}（${file.size_text}）`"
+              :value="file.name"
+            >
+              <span class="log-option-name">{{ file.name }}</span>
+              <span class="log-option-meta">{{ file.size_text }} · {{ file.mtime }}</span>
+            </el-option>
+          </el-select>
+          <el-select v-model="logLines" style="width: 108px" aria-label="读取行数" @change="loadLogs">
+            <el-option :value="100" label="100 行" />
+            <el-option :value="200" label="200 行" />
+            <el-option :value="500" label="500 行" />
+          </el-select>
+          <el-input
+            v-model="logQuery"
+            clearable
+            placeholder="按关键字过滤行（如 ERROR）"
+            prefix-icon="Search"
+            style="width: 240px"
+          />
+          <el-button type="primary" :icon="Refresh" :loading="logLoading" :disabled="!logFile" @click="loadLogs">
+            刷新
+          </el-button>
+        </div>
+        <p v-if="logData.file" class="log-meta">
+          {{ logData.file.name }} · {{ logData.file.size_text }} · 更新于 {{ logData.file.mtime }}
+          · 显示 {{ filteredLogLines.length }}/{{ logData.lines.length }} 行（从文件末尾读取，最多 500 行）
+        </p>
+        <div v-loading="logLoading" class="log-viewer">
+          <div v-if="!logLoading && !filteredLogLines.length" class="log-empty">
+            {{ logFile ? "没有匹配关键字的日志行" : "请选择日志文件" }}
+          </div>
+          <pre v-else>{{ filteredLogLines.join("\n") }}</pre>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
+
+    <!-- ======================== Worker 详情抽屉 ======================== -->
+    <el-drawer v-model="workerDrawer" :title="workerDetail?.name || '节点详情'" size="min(600px, 94vw)">
+      <div v-loading="workerLoading" class="worker-detail">
+        <template v-if="workerDetail">
+          <div class="worker-detail-status">
+            <el-tag :type="workerDetail.online ? 'success' : 'danger'" effect="light">
+              {{ workerDetail.online ? "在线" : "离线 / 无响应" }}
             </el-tag>
+            <el-tag v-if="workerDetail.env" type="info" effect="plain">环境 {{ workerDetail.env }}</el-tag>
+            <el-tag v-if="workerDetail.version" type="info" effect="plain">版本 {{ workerDetail.version }}</el-tag>
+            <span class="worker-detail-hb">心跳 {{ formatHeartbeat(workerDetail) }}</span>
           </div>
 
-          <p class="card-message">{{ card.message }}</p>
-
-          <el-progress
-            v-if="card.percent !== undefined && card.percent !== null"
-            class="card-meter"
-            :percentage="card.percent"
-            :color="meterColor(card.status)"
-            :stroke-width="10"
-            :show-text="true"
+          <el-alert
+            v-if="!workerDetail.online"
+            type="warning"
+            show-icon
+            :closable="false"
+            title="节点未响应实时探测"
+            description="该 Worker 可能已停止或长时间阻塞。若心跳仍在刷新说明进程仍在执行心跳任务；否则请检查进程。"
+            class="worker-alert"
           />
 
-          <ul v-if="card.metrics && card.metrics.length" class="kv">
-            <li v-for="metric in card.metrics" :key="metric.label">
-              <span class="k">{{ metric.label }}</span>
-              <span class="v">{{ metric.value }}</span>
-            </li>
-          </ul>
+          <el-descriptions v-if="workerDetail.online" :column="1" border size="small" class="worker-desc">
+            <el-descriptions-item label="并发数">{{ workerDetail.concurrency ?? "未知" }}</el-descriptions-item>
+            <el-descriptions-item label="Worker PID">{{ workerDetail.pid ?? "未知" }}</el-descriptions-item>
+            <el-descriptions-item label="进程池 PID">
+              {{ workerDetail.processes?.length ? workerDetail.processes.join("、") : "未知" }}
+            </el-descriptions-item>
+            <el-descriptions-item label="已运行">{{ formatUptime(workerDetail.uptime_seconds) }}</el-descriptions-item>
+            <el-descriptions-item label="累计执行任务">{{ workerDetail.total_tasks ?? 0 }} 次</el-descriptions-item>
+            <el-descriptions-item label="待执行（预留队列）">{{ workerDetail.reserved_count }}</el-descriptions-item>
+            <el-descriptions-item label="定时等待（ETA）">{{ workerDetail.scheduled_count }}</el-descriptions-item>
+            <el-descriptions-item label="已注册任务">{{ workerDetail.registered_count }} 个</el-descriptions-item>
+          </el-descriptions>
 
-          <div v-if="card.key === 'celery_worker' && card.workers && card.workers.length" class="workers">
-            <div v-for="worker in card.workers" :key="worker.name" class="worker-row">
-              <el-icon :size="14" :color="worker.alive ? '#67C23A' : '#F56C6C'">
-                <CircleCheckFilled v-if="worker.alive" />
-                <CircleCloseFilled v-else />
-              </el-icon>
-              <span class="worker-name">{{ worker.name }}</span>
-              <span class="worker-meta">
-                并发 {{ worker.concurrency ?? "—" }} · 心跳 {{ formatHeartbeat(worker) }}<template v-if="worker.env"> · {{ formatWorkerIdentity(worker) }}</template>
-              </span>
-              <el-tooltip
-                v-if="workerMismatched(worker, card)"
-                :content="`该 Worker 与当前服务环境/版本不一致（服务：${serviceMetric(card, '本服务环境') ?? '—'} ${serviceMetric(card, '本服务版本') ?? ''}），存在串环境或旧版本消费风险`"
-              >
-                <el-tag size="small" type="warning" effect="plain">不匹配</el-tag>
-              </el-tooltip>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+          <template v-if="workerDetail.online && workerDetail.top_tasks?.length">
+            <h4 class="worker-section">高频任务 Top</h4>
+            <ul class="kv">
+              <li v-for="[task, count] in workerDetail.top_tasks" :key="task">
+                <span class="k">{{ task }}</span>
+                <span class="v">{{ count }} 次</span>
+              </li>
+            </ul>
+          </template>
 
-    <footer v-if="overview" class="foot">
-      数据采集于 {{ overview.server.time }}；告警阈值：CPU ≥75% 注意 / ≥90% 异常，内存、磁盘 ≥80% 注意 / ≥90% 异常，心跳超时 180 秒。
-    </footer>
+          <h4 class="worker-section">正在执行（{{ workerDetail.active_count }}）</h4>
+          <el-table
+            v-if="workerDetail.active?.length"
+            :data="workerDetail.active"
+            size="small"
+            stripe
+          >
+            <el-table-column prop="name" label="任务" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="args" label="参数" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="time_start" label="开始时间" min-width="140" />
+            <el-table-column prop="worker_pid" label="PID" width="70" />
+          </el-table>
+          <p v-else class="worker-idle">空闲，没有正在执行的任务。</p>
+        </template>
+        <div v-else-if="!workerLoading" class="log-empty">未获取到节点数据</div>
+
+        <div class="worker-detail-actions">
+          <el-button :icon="Refresh" :loading="workerLoading" @click="loadWorkerDetail">刷新</el-button>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -109,6 +241,7 @@
 import { computed, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from "vue";
 import {
   AlarmClock,
+  ArrowRight,
   CircleCheckFilled,
   CircleCloseFilled,
   Connection,
@@ -121,11 +254,93 @@ import {
 } from "@element-plus/icons-vue";
 import Api from "@/api/api";
 
+const activeTab = ref("overview");
 const overview = ref(null);
 const loading = ref(false);
 const loadError = ref("");
 const autoRefresh = ref(true);
 const intervalSec = ref(30);
+
+// ---------------- 系统日志 ----------------
+const logFiles = ref([]);
+const logFile = ref("");
+const logLines = ref(200);
+const logQuery = ref("");
+const logLoading = ref(false);
+const logFilesLoading = ref(false);
+const logData = ref({ file: null, lines: [] });
+let logsInitiated = false;
+
+const filteredLogLines = computed(() => {
+  const lines = logData.value.lines || [];
+  const keyword = logQuery.value.trim().toLowerCase();
+  if (!keyword) return lines;
+  return lines.filter((line) => line.toLowerCase().includes(keyword));
+});
+
+async function loadLogFiles(preselect = true) {
+  logFilesLoading.value = true;
+  try {
+    const res = await Api.apiSystemOpsLogs();
+    if (res.code == 2000) {
+      logFiles.value = res.data.files || [];
+      if (preselect && !logFile.value && logFiles.value.length) {
+        logFile.value = logFiles.value[0].name;
+        await loadLogs();
+      }
+    }
+  } finally {
+    logFilesLoading.value = false;
+  }
+}
+
+async function loadLogs() {
+  if (!logFile.value || logLoading.value) return;
+  logLoading.value = true;
+  try {
+    const res = await Api.apiSystemOpsLogs({ file: logFile.value, lines: logLines.value });
+    if (res.code == 2000) {
+      logData.value = res.data;
+    }
+  } finally {
+    logLoading.value = false;
+  }
+}
+
+// ---------------- Worker 详情 ----------------
+const workerDrawer = ref(false);
+const workerLoading = ref(false);
+const workerDetail = ref(null);
+const workerDetailName = ref("");
+
+async function loadWorkerDetail() {
+  if (!workerDetailName.value || workerLoading.value) return;
+  workerLoading.value = true;
+  try {
+    const res = await Api.apiSystemOpsWorkerDetail({ name: workerDetailName.value });
+    if (res.code == 2000) {
+      workerDetail.value = res.data;
+    }
+  } finally {
+    workerLoading.value = false;
+  }
+}
+
+function openWorkerDetail(name) {
+  workerDetailName.value = name;
+  workerDetail.value = null;
+  workerDrawer.value = true;
+  loadWorkerDetail();
+}
+
+const formatUptime = (seconds) => {
+  if (seconds === null || seconds === undefined) return "未知";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h) return `${h} 小时 ${m} 分`;
+  if (m) return `${m} 分 ${Math.floor(seconds % 60)} 秒`;
+  return `${Math.floor(seconds)} 秒`;
+};
 
 const CARD_ICONS = {
   cpu: Cpu,
@@ -225,14 +440,24 @@ let timer = null;
 function restartTimer() {
   if (timer) clearInterval(timer);
   timer = null;
-  if (autoRefresh.value) {
+  if (autoRefresh.value && activeTab.value === "overview") {
     timer = setInterval(() => {
       if (!document.hidden) load();
     }, intervalSec.value * 1000);
   }
 }
 
-watch([autoRefresh, intervalSec], restartTimer);
+// 概览轮询只在概览 Tab 激活时进行；日志 Tab 首次进入时加载文件列表
+watch([autoRefresh, intervalSec, activeTab], (values, oldValues) => {
+  restartTimer();
+  if (activeTab.value === "logs" && !logsInitiated) {
+    logsInitiated = true;
+    loadLogFiles();
+  }
+  if (activeTab.value === "overview" && oldValues?.[2] === "logs") {
+    load();
+  }
+});
 onActivated(() => {
   load();
   restartTimer();
@@ -263,7 +488,7 @@ restartTimer();
   align-items: flex-end;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 .eyebrow {
   margin: 0 0 8px;
@@ -287,6 +512,7 @@ restartTimer();
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 32px;
 }
 .alert {
   margin-bottom: 16px;
@@ -378,6 +604,9 @@ restartTimer();
 .kv .k {
   color: var(--el-text-color-secondary);
   flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .kv .v {
   color: var(--el-text-color-primary);
@@ -395,8 +624,21 @@ restartTimer();
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0;
+  width: 100%;
+  padding: 6px 4px;
   font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: inherit;
+}
+.worker-row:hover,
+.worker-row:focus-visible {
+  background: var(--el-fill-color-light);
+  outline: none;
 }
 .worker-name {
   font-weight: 600;
@@ -404,9 +646,14 @@ restartTimer();
 .worker-meta {
   color: var(--el-text-color-secondary);
   font-size: 12px;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.worker-arrow {
+  color: var(--el-text-color-placeholder);
+  flex-shrink: 0;
 }
 .foot {
   margin-top: 16px;
@@ -414,8 +661,86 @@ restartTimer();
   color: var(--el-text-color-placeholder);
   line-height: 1.7;
 }
+
+/* ---------------- 系统日志 ---------------- */
+.log-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.log-option-name { float: left; }
+.log-option-meta {
+  float: right;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.log-meta {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.log-viewer {
+  min-height: 260px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
+  background: var(--el-fill-color-light);
+  padding: 12px 14px;
+}
+.log-viewer pre {
+  margin: 0;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--el-text-color-primary);
+  max-height: 60vh;
+  overflow: auto;
+}
+.log-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  color: var(--el-text-color-placeholder);
+  font-size: 13px;
+}
+
+/* ---------------- Worker 详情抽屉 ---------------- */
+.worker-detail { display: block; }
+.worker-detail-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.worker-detail-hb {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.worker-alert { margin-bottom: 12px; }
+.worker-desc { margin-bottom: 12px; }
+.worker-section {
+  margin: 16px 0 8px;
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+}
+.worker-idle {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+.worker-detail-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
 @media (max-width: 767px) {
   .ops-page { padding: 12px; }
   .header h1 { font-size: 24px; }
+  .log-toolbar .el-select { width: 100% !important; }
 }
 </style>
