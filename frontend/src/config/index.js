@@ -14,10 +14,10 @@ export default {
   API_URL: window.location.protocol + "//" + API_HOST,
 
   //标题
-  APP_TITLE: "lee-admin-template",
+  APP_TITLE: "Enterprise Agent Hub",
 
   //应用名称
-  APP_NAME: "lee-admin-template",
+  APP_NAME: "Enterprise Agent Hub",
 
   //是否开启多标签
   ISMULTITABS: true,

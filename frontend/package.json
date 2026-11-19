@@ -1,5 +1,5 @@
 {
-  "name": "lee-admin-template",
+  "name": "enterprise-agent-hub-frontend",
   "author": {
     "name": "calvin lee",
     "email": "lzb383551179@gmail.com",
@@ -7,7 +7,7 @@
   },
   "private": true,
   "version": "1.0.1",
-  "description": "极简后台管理系统。",
+  "description": "Enterprise Agent Hub 管理控制台（Vue3 + Vite + Element Plus）。",
   "type": "module",
   "scripts": {
     "start": "vite --host",

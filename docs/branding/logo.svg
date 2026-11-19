@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Enterprise Agent Hub logo">
+  <!-- Enterprise Agent Hub brand mark: hub-and-spoke agent network forming an abstract "A".
+       Regenerate raster assets with generate_logo.py (same geometry). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2B4EE8"/>
+      <stop offset="1" stop-color="#52A0FF"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.32" cy="0.26" r="0.75">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="236" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="236" fill="url(#hl)"/>
+
+  <!-- spokes: hub -> agents -->
+  <g stroke="#FFFFFF" stroke-width="36" stroke-linecap="round">
+    <line x1="512" y1="565" x2="512" y2="310"/>
+    <line x1="512" y1="565" x2="291" y2="692"/>
+    <line x1="512" y1="565" x2="733" y2="692"/>
+  </g>
+
+  <!-- governance orbit ring around the hub -->
+  <circle cx="512" cy="565" r="112" fill="none" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="16"/>
+
+  <!-- agent nodes -->
+  <circle cx="512" cy="310" r="50" fill="#FFFFFF"/>
+  <circle cx="291" cy="692" r="50" fill="#FFFFFF"/>
+  <circle cx="733" cy="692" r="50" fill="#FFFFFF"/>
+
+  <!-- hub core -->
+  <circle cx="512" cy="565" r="76" fill="#FFFFFF"/>
+</svg>

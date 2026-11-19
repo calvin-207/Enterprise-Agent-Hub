@@ -379,8 +379,8 @@ REST_FRAMEWORK = {
 # ****************SPECTACULAR************#
 # ====================================#
 SPECTACULAR_SETTINGS = {
-    "TITLE": "lee-admin-template API",
-    "DESCRIPTION": "lee-admin-template全栈快速web开发框架的API文档",
+    "TITLE": "Enterprise Agent Hub API",
+    "DESCRIPTION": "Enterprise Agent Hub（企业级 AI Agent 业务执行与治理平台）API 文档",
     "VERSION": "1.0.0",
     "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",

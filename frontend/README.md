@@ -1,4 +1,4 @@
-# lee-admin-template前端
+# Enterprise Agent Hub 前端（管理控制台）
 
 vue3+vite+elementplus
 
