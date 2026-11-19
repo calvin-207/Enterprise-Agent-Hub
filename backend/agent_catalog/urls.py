@@ -1,5 +1,5 @@
 from django.urls import path
-from model_gateway.views import ProviderConfigAPI, ModelProfileConfigAPI, ProviderSyncAPI
+from model_gateway.views import ProviderConfigAPI, ModelProfileConfigAPI, ProviderSyncAPI, ProviderTemplatesAPI
 
 from agent_catalog.views import (
     AgentListAPI, AgentDetailAPI, VersionsAPI, VersionDetailAPI,
@@ -8,6 +8,7 @@ from agent_catalog.views import (
 )
 
 urlpatterns = [
+    path("model-providers/templates/", ProviderTemplatesAPI.as_view(), name="model-provider-templates"),
     path("model-providers/", ProviderConfigAPI.as_view(), name="model-provider-config"),
     path("model-providers/<int:provider_id>/sync/", ProviderSyncAPI.as_view(), name="model-provider-sync"),
     path("model-providers/<int:provider_id>/", ProviderConfigAPI.as_view(), name="model-provider-detail"),

@@ -7,13 +7,13 @@
 1. 平台超级管理员进入 **系统配置 → AI 模型管理 → 模型提供商**。
 2. 创建供应商：
    - 官方 OpenAI：选择 `openai`，模型列表来自 OpenAI 官方 API。
-   - OpenAI 兼容 API：选择 `openai_compatible`，Base URL 须为 HTTPS 且域名在运维白名单中；是否实际兼容 SDK 要单独验证。
+   - OpenAI 兼容 API：选择 `openai_compatible`，Base URL 须为公网可解析的 HTTPS 地址（路径按供应商文档，如 DeepSeek `/v1`、智谱 `/api/paas/v4`）。新增对话框顶部提供**内置供应商模板**（OpenAI、DeepSeek、智谱 GLM、Kimi、通义千问、Gemini、Claude，来自 `GET /api/platform/v1/model-providers/templates/`），选中即自动填充；是否实际兼容 SDK 要单独验证。
    - Mock：选择 `mock`，用于无网络测试。
 3. 选择凭据保存方式（两种互斥）：
    - **环境变量引用**：`env:OPENAI_API_KEY` 或 `env:EAH_MODEL_KEY_MAIN`，API Key 放在后端与 Worker 的安全运行环境。
    - **后台加密录入**：通过 write-only `api_key` 字段写入，使用单独的 `EAH_MODEL_ENCRYPTION_KEY` 加密后存库；查询只返回 `has_stored_key`，不会回传 Key。
 4. 启用 Provider，点击 **同步模型**；服务端访问供应商 `GET /v1/models`（由 SDK 的 `models.list()` 实现），写入本地 ModelProfile。
-5. 在 **模型列表与价格** 页筛选/编辑同步模型，设置名称、输入/输出 Token 估算单价、输出上限、启用状态，以及平台默认模型。
+5. 在 **模型列表与价格** 页筛选/编辑同步模型，设置名称、输入/输出 Token 估算单价、输出上限、启用状态，以及平台默认模型。**内置参考价目表**（`model_gateway/pricing_reference.py`，2026-11 快照）会在同步创建新模型时自动填充名称、USD 参考单价与输出上限（覆盖 DeepSeek、OpenAI、Claude、Gemini、Kimi、GLM、Qwen 主流型号；国内供应商为人民币价近似换算），仅在创建时生效、绝不覆盖管理员已设置的值，且**不代表官方实时价格**；0 价格仍表示未配置。
 6. 在 Agent 管理页创建新 AgentVersion，系统预选默认模型，管理员可更换。只有已启用模型能被选择并用于发布。
 
 **同步规则：**
@@ -63,14 +63,9 @@ python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 将结果存入 Secret Manager，通过 `EAH_MODEL_ENCRYPTION_KEY` 注入 Django API 及执行 Worker。所有节点需使用**同一加密密钥**。丢失该密钥将无法解密已存储 API Key。密钥轮换需要先实现重加密流程；不要直接修改环境值。
 
-兼容服务的 HTTP 主机白名单（示例）：
+第三方必须提供完整 HTTPS `.../v1` Base URL 且解析到公开路由 IP。
 
-```bash
-# 由运维设置；不要允许任意主机或通配符
-export EAH_MODEL_ALLOWED_HOSTS="api.vendor-example.com"
-```
-
-第三方必须提供完整 HTTPS `.../v1` Base URL、公开路由 IP 且在白名单中。同步网络客户端禁止 HTTP 重定向、重试次数为 0，最多 8 秒超时，模型列表最多 1000 个。建议生产环境额外在网关层配置 egress ACL/DNS 防重绑定策略。
+**MVP 决策（2026-11-19）**：已移除 `EAH_MODEL_ALLOWED_HOSTS` 环境变量域名白名单及 `/v1` 路径硬性要求——供应商接入完全由超级管理员在后台自助完成（内置模板进一步降低填写成本），不再需要运维改环境变量并重启进程。保留的防线：HTTPS-only、默认端口、URL 禁带凭据/查询参数、DNS 须解析公网地址、同步客户端禁重定向、0 重试、8 秒超时、模型列表上限 1000。若后续平台面向公网部署，建议恢复出网域名管控（可演进为后台可管理、写审计的动态白名单）并配合网关层 egress ACL / DNS 防重绑定策略。
 
 **API Key 安全边界**：管理员只能写入或清除密钥，不能读取原文；加密存库的密钥仍需要通过运行进程解密，具备服务器权限的管理员仍可接触密钥。模型密钥访问审计与更复杂的轮换机制属于后续安全增强。
 
@@ -87,6 +82,6 @@ python manage.py makemigrations --check --dry-run --settings=test_settings
 cd ../frontend && npm test && npm run build
 ```
 
-测试覆盖：Mock 重复同步、已配置价格/启停不覆盖、真实供应商模型列表模拟导入、超级管理员权限、密钥加密/非回显、白名单和私网地址拒绝、供应商报错后保留本地数据、默认模型全局唯一。
+测试覆盖：Mock 重复同步、已配置价格/启停不覆盖、真实供应商模型列表模拟导入、超级管理员权限、密钥加密/非回显、HTTPS 与私网地址拒绝、供应商报错后保留本地数据、默认模型全局唯一。
 
 **限制**：真实 OpenAI 供应商需要管理员自己的合法 API Key 才能实际同步；CI 不请求真实收费 API，也不声称已完整验证所有兼容供应商。模型同步本身是只读目录操作，不会主动执行付费推理或开通供应商服务。

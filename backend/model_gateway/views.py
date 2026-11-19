@@ -11,6 +11,7 @@ from model_gateway.models import ModelProvider, ModelProfile
 from model_gateway.secrets import validate_secret_ref
 from model_gateway.credentials import encrypt_api_key
 from model_gateway.discovery import sync_models, ModelSyncError, safe_base_url
+from model_gateway.provider_templates import PROVIDER_TEMPLATES
 
 ALLOWED_PROVIDER_TYPES = {"mock", "openai", "openai_compatible"}
 
@@ -203,3 +204,10 @@ class ProviderSyncAPI(PlatformAPI):
             return ok(sync_models(provider))
         except ModelSyncError as exc:
             return bad(str(exc), exc.status)
+
+
+class ProviderTemplatesAPI(PlatformAPI):
+    """Built-in provider presets; selecting one only pre-fills the admin form."""
+    def get(self, request):
+        check_admin(request)
+        return ok(PROVIDER_TEMPLATES)

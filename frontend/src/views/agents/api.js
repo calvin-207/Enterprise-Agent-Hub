@@ -32,6 +32,7 @@ export const cancelRun = (id) => ajaxPost({ url: `${base}runs/${id}/cancel/`, pa
 export const getRunUsage = (id) => ajaxGet({ url: `${base}runs/${id}/usage/` });
 
 export const listProviders = () => ajaxGet({ url: `${base}model-providers/` });
+export const listProviderTemplates = () => ajaxGet({ url: `${base}model-providers/templates/` });
 export const createProvider = (params) => ajaxPost({ url: `${base}model-providers/`, params });
 export const updateProvider = (id, params) => ajaxPatch({ url: `${base}model-providers/${id}/`, params });
 export const listProfiles = () => ajaxGet({ url: `${base}model-profiles/` });

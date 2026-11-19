@@ -129,24 +129,29 @@ def test_sync_rejects_nonadmin_and_disabled(client, django_user_model):
 
 
 @pytest.mark.django_db
-def test_compatible_url_requires_operator_allowlist(client, monkeypatch):
+def test_compatible_url_requires_https_public_address(client, monkeypatch):
+    monkeypatch.delenv("EAH_MODEL_ALLOWED_HOSTS", raising=False)
     response = client.post("/api/platform/v1/model-providers/", {
         "code": "compatible", "name": "Third Party",
         "adapter_type": "openai_compatible", "base_url": "http://127.0.0.1:8000/v1",
     }, format="json")
     assert response.status_code == 400
-    response = client.post("/api/platform/v1/model-providers/", {
-        "code": "compatible", "name": "Third Party",
-        "adapter_type": "openai_compatible", "base_url": "https://example.com/v1",
-    }, format="json")
-    assert response.status_code == 400
-    monkeypatch.setenv("EAH_MODEL_ALLOWED_HOSTS", "example.com")
+    # MVP: no operator allowlist; any public HTTPS /v1 endpoint is accepted.
     with patch("model_gateway.discovery.socket.getaddrinfo", return_value=[
         (2, 1, 6, "", ("93.184.216.34", 443))
     ]):
         response = client.post("/api/platform/v1/model-providers/", {
             "code": "compatible", "name": "Third Party", "adapter_type": "openai_compatible",
-            "base_url": "https://example.com/v1"
+            "base_url": "https://any-vendor.example/v1"
+        }, format="json")
+        assert response.status_code == 201, response.data
+    # Vendor path layouts other than /v1 (e.g. zhipu /api/paas/v4) are accepted too.
+    with patch("model_gateway.discovery.socket.getaddrinfo", return_value=[
+        (2, 1, 6, "", ("93.184.216.34", 443))
+    ]):
+        response = client.post("/api/platform/v1/model-providers/", {
+            "code": "compatible-v4", "name": "Third Party V4", "adapter_type": "openai_compatible",
+            "base_url": "https://vendor.example/api/paas/v4"
         }, format="json")
         assert response.status_code == 201, response.data
     with patch("model_gateway.discovery.socket.getaddrinfo", return_value=[
@@ -155,6 +160,50 @@ def test_compatible_url_requires_operator_allowlist(client, monkeypatch):
         provider = ModelProvider.objects.get(code="compatible")
         with pytest.raises(ModelSyncError):
             safe_base_url(provider)
+
+
+@pytest.mark.django_db
+def test_provider_templates_endpoint_lists_presets(client):
+    response = client.get("/api/platform/v1/model-providers/templates/")
+    assert response.status_code == 200
+    data = response.data["data"]
+    codes = {item["code"] for item in data}
+    assert {"openai", "deepseek", "zhipu", "moonshot", "qwen", "gemini", "anthropic"} <= codes
+    deepseek = next(t for t in data if t["code"] == "deepseek")
+    assert deepseek["adapter_type"] == "openai_compatible"
+    assert deepseek["base_url"] == "https://api.deepseek.com/v1"
+    for item in data:
+        assert set(item) == {"code", "name", "adapter_type", "base_url", "docs_url", "note"}
+        assert "api_key" not in item
+
+
+@pytest.mark.django_db
+def test_sync_prefills_reference_pricing_for_known_models(client):
+    from decimal import Decimal
+    p = ModelProvider.objects.create(
+        code="deepseek", name="DeepSeek", adapter_type="openai_compatible",
+        base_url="https://api.deepseek.com/v1", enabled=True, secret_ref="env:EAH_MODEL_KEY_TEST",
+    )
+    mock_items = [{"id": "deepseek-chat", "name": "deepseek-chat"},
+                  {"id": "internal-unknown-model", "name": "internal-unknown-model"}]
+    with patch("model_gateway.discovery.list_remote_models", return_value=mock_items):
+        reply = client.post(f"/api/platform/v1/model-providers/{p.pk}/sync/")
+        assert reply.status_code == 200, reply.data
+        assert reply.data["data"]["created"] == 2
+        assert reply.data["data"]["priced"] == 1
+    known = p.profiles.get(model_code="deepseek-chat")
+    assert Decimal(known.input_price_per_million) == Decimal("0.27")
+    assert Decimal(known.output_price_per_million) == Decimal("1.10")
+    assert known.enabled is False and known.source == "sync"
+    unknown = p.profiles.get(model_code="internal-unknown-model")
+    assert Decimal(unknown.input_price_per_million) == 0
+    # Admin-adjusted prices must survive a re-sync.
+    known.input_price_per_million = "9.900000"
+    known.save()
+    with patch("model_gateway.discovery.list_remote_models", return_value=mock_items):
+        assert client.post(f"/api/platform/v1/model-providers/{p.pk}/sync/").status_code == 200
+    known.refresh_from_db()
+    assert Decimal(known.input_price_per_million) == Decimal("9.9")
 
 
 @pytest.mark.django_db

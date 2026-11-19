@@ -9,7 +9,7 @@
     </header>
     <el-alert type="warning" show-icon :closable="false" class="alert"
       title="同步模型只导入供应商返回的模型 ID，并不代表模型已通过推理验证"
-      description="新同步模型默认未启用；同步不会覆盖已有模型的名称、价格、默认标记及启停状态。请手工核对模型能力与费用。" />
+      description="新同步模型默认未启用；已知模型会自动填充 USD 参考价（仅供费用估算，以供应商官网为准，0 表示未配置）；同步不会覆盖已有模型的名称、价格、默认标记及启停状态。" />
     <el-tabs v-model="tab">
       <el-tab-pane name="providers" label="模型提供商">
         <div class="toolbar"><strong>Provider 列表</strong><el-button type="primary" :icon="Plus" @click="openProvider()">新增 Provider</el-button></div>
@@ -56,18 +56,24 @@
 
     <el-dialog v-model="showProvider" :title="editProvider ? '编辑 Provider' : '新增 Provider'" width="min(540px, 96vw)">
       <el-form ref="providerRef" :model="providerForm" label-position="top">
+        <el-form-item v-if="!editProvider" label="快速模板（可选，选择后自动填充）">
+          <el-select v-model="selectedTemplate" clearable placeholder="选择供应商模板，如 DeepSeek / 智谱 / Kimi" style="width:100%" @change="applyTemplate">
+            <el-option v-for="t in providerTemplates" :key="t.code" :value="t.code" :label="t.name"/>
+          </el-select>
+          <small v-if="templateHint">{{ templateHint }}</small>
+        </el-form-item>
         <el-form-item label="唯一标识" required><el-input v-model.trim="providerForm.code" maxlength="64" :disabled="!!editProvider" placeholder="例如 openai-primary"/></el-form-item>
         <el-form-item label="名称" required><el-input v-model.trim="providerForm.name" maxlength="120"/></el-form-item>
         <el-form-item label="适配类型">
           <el-select v-model="providerForm.adapter_type" style="width:100%">
             <el-option value="openai" label="OpenAI 官方"/>
-            <el-option value="openai_compatible" label="OpenAI 兼容接口（域名白名单）"/>
+            <el-option value="openai_compatible" label="OpenAI 兼容接口"/>
             <el-option value="mock" label="Mock（离线测试）"/>
           </el-select>
         </el-form-item>
         <el-form-item v-if="providerForm.adapter_type === 'openai_compatible'" label="API Base URL">
-          <el-input v-model.trim="providerForm.base_url" placeholder="https://trusted.provider.example/v1"/>
-          <small>域名需由运维预先添加至 EAH_MODEL_ALLOWED_HOSTS。</small>
+          <el-input v-model.trim="providerForm.base_url" placeholder="https://api.deepseek.com/v1"/>
+          <small>须为公网可解析的 HTTPS 地址，具体路径以供应商文档为准（模板已自动填好）。</small>
         </el-form-item>
         <el-form-item label="密钥引用（env:...，可选）">
           <el-input v-model.trim="providerForm.secret_ref" :disabled="providerForm.adapter_type === 'mock'"
@@ -112,7 +118,7 @@
 import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus, Refresh } from "@element-plus/icons-vue";
-import { listProviders, createProvider, updateProvider, listProfiles, createProfile, updateProfile, syncProviderModels } from "./api";
+import { listProviders, createProvider, updateProvider, listProfiles, createProfile, updateProfile, syncProviderModels, listProviderTemplates } from "./api";
 
 const tab = ref("providers");
 const providers = ref([]);
@@ -127,6 +133,9 @@ const filteredProfiles = computed(() => profiles.value.filter(model => {
 const loading = ref(false);
 const saving = ref(false);
 const syncingId = ref(null);
+const providerTemplates = ref([]);
+const selectedTemplate = ref("");
+const templateHint = ref("");
 const showProvider = ref(false);
 const showProfile = ref(false);
 const editProvider = ref(null);
@@ -142,11 +151,29 @@ async function reload() {
     if (p.code !== 2000 || m.code !== 2000) throw new Error(p.msg || m.msg || "读取失败");
     providers.value = p.data || [];
     profiles.value = m.data || [];
-  } catch (e) { ElMessage.error(e?.message || "读取模型配置失败，请检查管理员权限"); }
+  } catch (e) { if (!e?.handled) ElMessage.error(e?.message || "读取模型配置失败，请检查管理员权限"); }
   finally { loading.value = false; }
+}
+async function loadTemplates() {
+  try {
+    const result = await listProviderTemplates();
+    if (result.code === 2000) providerTemplates.value = result.data || [];
+  } catch { /* 模板加载失败不影响页面其他功能 */ }
+}
+function applyTemplate(code) {
+  const template = providerTemplates.value.find(t => t.code === code);
+  if (!template) { templateHint.value = ""; return; }
+  providerForm.value = {
+    ...providerForm.value,
+    code: template.code, name: template.name,
+    adapter_type: template.adapter_type, base_url: template.base_url || "",
+  };
+  templateHint.value = (template.note ? template.note + " " : "") + (template.docs_url ? `文档：${template.docs_url}` : "");
 }
 function openProvider(item = null) {
   editProvider.value = item;
+  selectedTemplate.value = "";
+  templateHint.value = "";
   providerForm.value = item ? {
     code: item.code, name: item.name, adapter_type: item.adapter_type,
     secret_ref: item.secret_ref, enabled: item.enabled, base_url: item.base_url || "", api_key: "", clear_api_key: false,
@@ -182,7 +209,7 @@ async function saveProvider() {
     showProvider.value = false;
     ElMessage.success("Provider 已保存");
     await reload();
-  } catch (e) { ElMessage.error(e?.message || "保存失败"); }
+  } catch (e) { if (!e?.handled) ElMessage.error(e?.message || "保存失败"); }
   finally { saving.value = false; }
 }
 async function saveProfile() {
@@ -196,7 +223,7 @@ async function saveProfile() {
     showProfile.value = false;
     ElMessage.success("模型配置已保存");
     await reload();
-  } catch (e) { ElMessage.error(e?.message || "保存失败"); }
+  } catch (e) { if (!e?.handled) ElMessage.error(e?.message || "保存失败"); }
   finally { saving.value = false; }
 }
 async function syncModels(provider) {
@@ -204,15 +231,16 @@ async function syncModels(provider) {
   try {
     const response = await syncProviderModels(provider.id);
     if (response.code !== 2000) throw new Error(response.msg || "同步失败");
-    ElMessage.success("已同步 " + response.data.total + " 个模型，新增 " + response.data.created + " 个，已存在 " + response.data.existing + " 个");
+    const pricedNote = response.data.priced ? "，其中 " + response.data.priced + " 个已填充参考价" : "";
+    ElMessage.success("已同步 " + response.data.total + " 个模型，新增 " + response.data.created + " 个，已存在 " + response.data.existing + " 个" + pricedNote);
     tab.value = "profiles";
     selectedProviderId.value = provider.id;
     await reload();
   } catch (error) {
-    ElMessage.error(error?.message || "同步失败，请检查供应商凭据和接口");
+    if (!error?.handled) ElMessage.error(error?.message || "同步失败，请检查供应商凭据和接口");
   } finally { syncingId.value = null; }
 }
-onMounted(reload);
+onMounted(() => { reload(); loadTemplates(); });
 </script>
 
 <style scoped>
