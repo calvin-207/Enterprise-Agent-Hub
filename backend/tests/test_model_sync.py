@@ -217,3 +217,27 @@ def test_remote_error_does_not_delete_or_disable_models(client):
     model.refresh_from_db()
     assert model.enabled
     assert ModelProfile.objects.filter(provider=provider).count() == 1
+
+
+@pytest.mark.django_db
+def test_connection_check_writes_nothing_and_allows_disabled(client, django_user_model):
+    p = ModelProvider.objects.create(code="conn-mock", name="Conn Mock", adapter_type="mock", enabled=False)
+    reply = client.post(f"/api/platform/v1/model-providers/{p.pk}/test/")
+    assert reply.status_code == 200, reply.data
+    assert reply.data["data"]["model_count"] == 1
+    assert reply.data["data"]["sample"] == ["mock-small"]
+    assert reply.data["data"]["enabled"] is False
+    assert ModelProfile.objects.filter(provider=p).count() == 0
+    user = django_user_model.objects.create_user(username="conn-basic", password="test", name="Basic")
+    basic = APIClient()
+    basic.force_authenticate(user=user)
+    assert basic.post(f"/api/platform/v1/model-providers/{p.pk}/test/").status_code == 403
+
+
+@pytest.mark.django_db
+def test_connection_check_surfaces_credential_errors(client, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    p = ModelProvider.objects.create(code="conn-nokey", name="No Key", adapter_type="openai", enabled=True)
+    reply = client.post(f"/api/platform/v1/model-providers/{p.pk}/test/")
+    assert reply.status_code == 409
+    assert ModelProfile.objects.filter(provider=p).count() == 0

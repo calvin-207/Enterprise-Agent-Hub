@@ -23,9 +23,19 @@
           <el-table-column label="启用状态" width="95">
             <template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template>
           </el-table-column>
+          <el-table-column label="可用模型" min-width="170">
+            <template #default="{ row }">
+              <template v-if="providerStats[row.id]?.total">
+                <span>{{ providerStats[row.id].enabled }}/{{ providerStats[row.id].total }} 已启用</span>
+                <el-tag v-if="row.enabled && providerStats[row.id].enabled === 0" type="warning" size="small" class="mini-tag">Agent 不可选</el-tag>
+              </template>
+              <span v-else>{{ row.last_sync_at ? "0 个模型" : "未同步" }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="同步时间" min-width="165"><template #default="{ row }">{{ row.last_sync_at ? new Date(row.last_sync_at).toLocaleString("zh-CN") : "未同步" }}</template></el-table-column>
-          <el-table-column label="操作" width="180"><template #default="{ row }">
+          <el-table-column label="操作" width="235" fixed="right"><template #default="{ row }">
             <el-button link type="primary" @click="openProvider(row)">编辑</el-button>
+            <el-button link :loading="testingId === row.id" @click="testConnection(row)">测试连接</el-button>
             <el-button link type="success" :loading="syncingId === row.id" :disabled="!row.enabled" @click="syncModels(row)">同步模型</el-button>
           </template></el-table-column>
         </el-table>
@@ -37,8 +47,9 @@
             <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id"/>
           </el-select>
           <el-input v-model="modelQuery" clearable placeholder="按模型 ID / 名称搜索" style="width:270px"/>
-          <span>共 {{ filteredProfiles.length }} 个模型</span>
+          <span>共 {{ filteredProfiles.length }} 个模型，已启用 {{ filteredEnabledCount }} 个</span>
         </div>
+        <p class="model-hint">仅「已启用」且所属 Provider 也「已启用」的模型，才会出现在 Agent 版本配置的模型下拉框中。</p>
         <el-table :data="filteredProfiles" v-loading="loading" stripe>
           <el-table-column prop="name" label="名称" min-width="140"/>
           <el-table-column label="Provider" min-width="120"><template #default="{ row }">{{ providerLabel(row.provider) }}</template></el-table-column>
@@ -48,7 +59,9 @@
           <el-table-column prop="max_output_tokens" label="单次输出上限" width="120"/>
           <el-table-column label="默认" width="75"><template #default="{ row }"><el-tag v-if="row.is_default" type="success">默认</el-tag><span v-else>—</span></template></el-table-column>
           <el-table-column label="来源" width="80"><template #default="{ row }">{{ row.source === 'sync' ? '同步' : '手动' }}</template></el-table-column>
-          <el-table-column label="状态" width="80"><template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template></el-table-column>
+          <el-table-column label="状态" width="95"><template #default="{ row }">
+            <el-switch :model-value="row.enabled" :loading="togglingId === row.id" @change="value => toggleProfile(row, value)"/>
+          </template></el-table-column>
           <el-table-column label="操作" width="85"><template #default="{ row }"><el-button link type="primary" @click="openProfile(row)">编辑</el-button></template></el-table-column>
         </el-table>
       </el-tab-pane>
@@ -118,7 +131,7 @@
 import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus, Refresh } from "@element-plus/icons-vue";
-import { listProviders, createProvider, updateProvider, listProfiles, createProfile, updateProfile, syncProviderModels, listProviderTemplates } from "./api";
+import { listProviders, createProvider, updateProvider, listProfiles, createProfile, updateProfile, syncProviderModels, testProviderConnection, listProviderTemplates } from "./api";
 
 const tab = ref("providers");
 const providers = ref([]);
@@ -130,9 +143,21 @@ const filteredProfiles = computed(() => profiles.value.filter(model => {
   const needle = modelQuery.value.trim().toLowerCase();
   return !needle || model.name.toLowerCase().includes(needle) || model.model_code.toLowerCase().includes(needle);
 }));
+const filteredEnabledCount = computed(() => filteredProfiles.value.filter(model => model.enabled).length);
+const providerStats = computed(() => {
+  const stats = {};
+  for (const model of profiles.value) {
+    const item = stats[model.provider] || (stats[model.provider] = { enabled: 0, total: 0 });
+    item.total += 1;
+    if (model.enabled) item.enabled += 1;
+  }
+  return stats;
+});
 const loading = ref(false);
 const saving = ref(false);
 const syncingId = ref(null);
+const testingId = ref(null);
+const togglingId = ref(null);
 const providerTemplates = ref([]);
 const selectedTemplate = ref("");
 const templateHint = ref("");
@@ -226,19 +251,52 @@ async function saveProfile() {
   } catch (e) { if (!e?.handled) ElMessage.error(e?.message || "保存失败"); }
   finally { saving.value = false; }
 }
+async function testConnection(provider) {
+  testingId.value = provider.id;
+  try {
+    const response = await testProviderConnection(provider.id);
+    if (response.code !== 2000) throw new Error(response.msg || "测试失败");
+    const data = response.data || {};
+    const sample = data.sample?.length ? `，示例：${data.sample.join("、")}` : "";
+    const enabledNote = data.enabled ? "" : "（Provider 当前为停用状态，启用后方可同步）";
+    ElMessage({ type: "success", showClose: true, duration: 7000,
+      message: `连接成功：${provider.name} 返回 ${data.model_count} 个模型${sample}${enabledNote}` });
+  } catch (e) {
+    if (!e?.handled) ElMessage.error(e?.message || "测试失败");
+  } finally { testingId.value = null; }
+}
 async function syncModels(provider) {
   syncingId.value = provider.id;
   try {
     const response = await syncProviderModels(provider.id);
     if (response.code !== 2000) throw new Error(response.msg || "同步失败");
     const pricedNote = response.data.priced ? "，其中 " + response.data.priced + " 个已填充参考价" : "";
-    ElMessage.success("已同步 " + response.data.total + " 个模型，新增 " + response.data.created + " 个，已存在 " + response.data.existing + " 个" + pricedNote);
+    const createdNote = response.data.created > 0
+      ? `；新增 ${response.data.created} 个默认停用，请在下方列表启用需要的模型` : "";
+    ElMessage({ type: "success", showClose: true, duration: 7000,
+      message: `已同步 ${response.data.total} 个模型，已存在 ${response.data.existing} 个${pricedNote}${createdNote}` });
     tab.value = "profiles";
     selectedProviderId.value = provider.id;
     await reload();
   } catch (error) {
     if (!error?.handled) ElMessage.error(error?.message || "同步失败，请检查供应商凭据和接口");
   } finally { syncingId.value = null; }
+}
+async function toggleProfile(row, value) {
+  togglingId.value = row.id;
+  try {
+    const result = await updateProfile(row.id, { enabled: value });
+    if (result.code !== 2000) throw new Error(result.msg || "操作失败");
+    row.enabled = value;
+    const provider = providers.value.find(p => p.id === row.provider);
+    if (value && provider && !provider.enabled) {
+      ElMessage.warning("模型已启用，但其所属 Provider 处于停用状态，仍不会出现在 Agent 可选模型中");
+    } else {
+      ElMessage.success(value ? "模型已启用" : "模型已停用");
+    }
+  } catch (e) {
+    if (!e?.handled) ElMessage.error(e?.message || "操作失败");
+  } finally { togglingId.value = null; }
 }
 onMounted(() => { reload(); loadTemplates(); });
 </script>
@@ -250,7 +308,9 @@ onMounted(() => { reload(); loadTemplates(); });
 h1 { font-size: 26px; margin: 0 0 8px; }
 .description { color: var(--el-text-color-secondary); margin: 0; line-height: 1.7; }
 .alert { margin-bottom: 16px; }
-.model-filters { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:12px 0; color:var(--el-text-color-secondary); font-size:12px; }
+.model-filters { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:12px 0 4px; color:var(--el-text-color-secondary); font-size:12px; }
+.model-hint { margin:0 0 12px; color:var(--el-text-color-secondary); font-size:12px; }
+.mini-tag { margin-left:6px; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; }
 @media (max-width: 720px) { .models-page { padding: 12px; } .header { flex-direction: column; } }
 </style>

@@ -52,3 +52,4 @@ export const submitSessionRun = (id, message, key) => ajaxPost({
 });
 
 export const syncProviderModels = (id) => ajaxPost({ url: `${base}model-providers/${id}/sync/`, params: {} });
+export const testProviderConnection = (id) => ajaxPost({ url: `${base}model-providers/${id}/test/`, params: {} });

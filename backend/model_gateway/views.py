@@ -10,7 +10,7 @@ from rest_framework.exceptions import PermissionDenied
 from model_gateway.models import ModelProvider, ModelProfile
 from model_gateway.secrets import validate_secret_ref
 from model_gateway.credentials import encrypt_api_key
-from model_gateway.discovery import sync_models, ModelSyncError, safe_base_url
+from model_gateway.discovery import sync_models, list_remote_models, ModelSyncError, safe_base_url
 from model_gateway.provider_templates import PROVIDER_TEMPLATES
 
 ALLOWED_PROVIDER_TYPES = {"mock", "openai", "openai_compatible"}
@@ -204,6 +204,25 @@ class ProviderSyncAPI(PlatformAPI):
             return ok(sync_models(provider))
         except ModelSyncError as exc:
             return bad(str(exc), exc.status)
+
+
+class ProviderTestAPI(PlatformAPI):
+    """Connectivity/credential check; runs the same guards as sync but writes nothing."""
+    def post(self, request, provider_id):
+        check_admin(request)
+        provider = get_object_or_404(ModelProvider, pk=provider_id)
+        try:
+            models = list_remote_models(provider, require_enabled=False)
+        except ModelSyncError as exc:
+            return bad(str(exc), exc.status)
+        return ok({
+            "provider": provider.code,
+            "adapter_type": provider.adapter_type,
+            "enabled": provider.enabled,
+            "model_count": len(models),
+            "sample": [item["id"] for item in models[:5]],
+            "note": "连接测试通过；未写入任何本地模型记录",
+        })
 
 
 class ProviderTemplatesAPI(PlatformAPI):

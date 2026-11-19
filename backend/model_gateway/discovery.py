@@ -53,8 +53,8 @@ def safe_base_url(provider):
     return parts.geturl().rstrip("/")
 
 
-def list_remote_models(provider):
-    if not provider.enabled:
+def list_remote_models(provider, require_enabled=True):
+    if require_enabled and not provider.enabled:
         raise ModelSyncError("请先启用 Provider")
     if provider.adapter_type == "mock":
         return [{"id": "mock-small", "name": "Mock Small"}]
