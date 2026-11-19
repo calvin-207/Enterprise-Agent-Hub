@@ -27,6 +27,27 @@ def _origin_ok(request_headers):
     return True
 
 
+def _report_beat_version_mismatch(headers):
+    """版本不匹配的 Beat 心跳被拒时，把两边版本写入短 TTL 标记（尽力而为）。
+
+    旧版 Beat 每 60 秒重试一次心跳，标记会持续续期；Beat 重启到新版本后
+    心跳恢复正常，标记在 TTL 内自然过期。
+    """
+    try:
+        from django_redis import get_redis_connection
+        from system.views.ops import OPS_BEAT_MISMATCH_KEY, _cache_key
+        conn = get_redis_connection("default")
+        payload = json.dumps({
+            "beat_version": (headers or {}).get("hub-version"),
+            "worker_version": settings.HUB_CODE_VERSION,
+            "env": settings.CELERY_ENV_TAG,
+            "ts": timezone.now().isoformat(),
+        })
+        conn.set(_cache_key(OPS_BEAT_MISMATCH_KEY), payload, ex=900)
+    except Exception:
+        logger.exception("Failed to report beat version mismatch marker")
+
+
 @shared_task(name="system.ping", bind=True, ignore_result=False)
 def ping(self):
     """Verify that a worker can execute a JSON-serializable task."""
@@ -73,9 +94,17 @@ def ops_heartbeat(self):
         logger.warning("Ops heartbeat skipped: %s", exc)
         return
 
-    if not _origin_ok(getattr(self.request, "headers", None)):
-        # 心跳消息来自其他环境（共用 Broker 时可能发生）：不写入本环境的心跳数据，
-        # 避免运维页面把别环境的 Beat/Worker 误判为本环境的存活信号。
+    headers = getattr(self.request, "headers", None)
+    mismatch = message_origin_mismatch(headers)
+    if mismatch is not None:
+        kind, reason = mismatch
+        logger.error("Ops heartbeat rejected (%s mismatch): %s", kind, reason)
+        # 心跳的语义是「调度链路端到端可用」：版本不一致时 Beat 的业务调度同样
+        # 正在被拒，写入 beat_hb 会造成「Beat 正常」的假信号，因此跳过。
+        # 但要留下版本不匹配标记，让运维页面把「Beat 挂了」和「Beat 版本过旧」
+        # 区分开——后者只需重启 Beat。
+        if kind == "version":
+            _report_beat_version_mismatch(headers)
         return
 
     try:

@@ -93,6 +93,13 @@ export CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/4
 与本服务不一致时标记「不匹配」告警；`system.ping` 的返回值也带 `env` / `version`，
 CI 冒烟测试据此断言消息与 Worker 同源。
 
+**Beat 版本策略**：Beat 不消费任务，它的版本通过消息头体现并被 Worker 侧否决——
+版本不一致时 Beat 派发的所有消息（含业务计划）都会被拒。心跳此时**刻意不执行**：
+`ops:beat_hb` 的语义是「调度链路端到端可用」，链路已断时刷新它会造成
+「Beat 正常」的假信号。被拒的心跳会写入 `ops:beat_mismatch` 标记（带两边版本，
+TTL 900 秒，旧 Beat 每 60 秒重试会持续续期），运维页 Beat 卡片据此把
+「Beat 挂了」和「Beat 版本过旧」区分开，直接提示重启 Beat。
+
 **运维要点**：
 
 - 每套环境的 Django / Worker / Beat 进程要设置**相同的 `HUB_ENV`**（同一 shell 启动即可继承）；

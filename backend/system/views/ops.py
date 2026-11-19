@@ -50,6 +50,9 @@ OPS_BEAT_KEY = "ops:beat_hb"
 OPS_WORKER_KEY = "ops:worker_hb"
 # Worker 心跳附带的环境/版本信息（JSON：{"env": ..., "version": ...}）
 OPS_WORKER_META_KEY = "ops:worker_meta"
+# 版本不匹配的 Beat 心跳被拒时留下的标记（JSON：beat/worker 两边版本 + 时间），
+# 供 Beat 卡片区分「Beat 挂了」和「Beat 版本过旧被 Worker 拒绝」。
+OPS_BEAT_MISMATCH_KEY = "ops:beat_mismatch"
 
 
 def _judge_percent(percent, warn, error):
@@ -306,7 +309,7 @@ def check_redis():
 
 def _read_heartbeats():
     """读取心跳任务上报的 Beat / Worker 心跳数据；Redis 不可用时返回空结果"""
-    beat_at, worker_hb, worker_meta = None, {}, {}
+    beat_at, worker_hb, worker_meta, beat_mismatch = None, {}, {}, None
     try:
         conn = _redis_conn()
         raw = conn.get(_cache_key(OPS_BEAT_KEY))
@@ -331,9 +334,15 @@ def _read_heartbeats():
                 worker_meta[name] = {"env": meta.get("env"), "version": meta.get("version")}
             except (ValueError, TypeError, AttributeError):
                 continue
+        mismatch_raw = conn.get(_cache_key(OPS_BEAT_MISMATCH_KEY))
+        if mismatch_raw:
+            try:
+                beat_mismatch = json.loads(_decode(mismatch_raw))
+            except (ValueError, TypeError, AttributeError):
+                beat_mismatch = None
     except Exception:
         pass
-    return beat_at, worker_hb, worker_meta
+    return beat_at, worker_hb, worker_meta, beat_mismatch
 
 
 def check_celery_worker(worker_hb, worker_meta=None):
@@ -437,8 +446,13 @@ def check_celery_worker(worker_hb, worker_meta=None):
     }
 
 
-def check_celery_beat(beat_at):
-    """Beat 本身不执行任务，通过 ops_heartbeat 定时任务的上报时间判断其存活"""
+def check_celery_beat(beat_at, beat_mismatch=None):
+    """Beat 本身不执行任务，通过 ops_heartbeat 定时任务的上报时间判断其存活。
+
+    版本不匹配的判定优先于心跳新鲜度：被拒的心跳会留下 ops:beat_mismatch 标记，
+    此时 Beat 进程其实活着，但它的调度消息正被 Worker 逐条拒绝——
+    必须显式报告「重启 Beat」，而不是笼统的「心跳丢失」。
+    """
     scheduler = settings.CELERY_BEAT_SCHEDULER.rsplit(":", 1)[-1]
     schedule_enabled = bool(
         settings.CELERY_BEAT_SCHEDULE.get("system-ops-heartbeat")
@@ -456,20 +470,55 @@ def check_celery_beat(beat_at):
             status, message = "error", f"心跳已中断 {age:.0f} 秒，定时任务可能停止调度"
         else:
             status, message = "error", f"心跳丢失（最后上报于 {beat_at:%Y-%m-%d %H:%M:%S}）"
+
+    metrics = [
+        {"label": "调度器", "value": scheduler},
+        {"label": "心跳间隔", "value": "60 秒（system.ops_heartbeat）" if schedule_enabled else "已停用"},
+        {
+            "label": "最近心跳",
+            "value": beat_at.strftime("%Y-%m-%d %H:%M:%S") if beat_at else "未上报",
+        },
+    ]
+
+    mismatch = _active_beat_mismatch(beat_mismatch)
+    if mismatch:
+        beat_version = mismatch.get("beat_version") or "未知"
+        worker_version = mismatch.get("worker_version") or "未知"
+        metrics.append({"label": "Beat 版本", "value": beat_version})
+        metrics.append({"label": "Worker 版本", "value": worker_version})
+        if status == "ok":
+            # 心跳仍正常但出现过被拒消息：多个 Worker 版本混布，部分心跳被拒
+            status = "warn"
+            message = (
+                f"心跳部分正常，但检测到版本不匹配的 Beat/Worker 组合"
+                f"（beat={beat_version} / worker={worker_version}），请统一版本"
+            )
+        else:
+            status = "error"
+            message = (
+                f"Beat 在运行但版本与 Worker 不一致（beat={beat_version} / worker={worker_version}），"
+                "调度消息已被 Worker 拒绝，全部定时计划停摆，请立即重启 Beat"
+            )
+
     return {
         "key": "celery_beat",
         "title": "Celery Beat",
         "status": status,
         "message": message,
-        "metrics": [
-            {"label": "调度器", "value": scheduler},
-            {"label": "心跳间隔", "value": "60 秒（system.ops_heartbeat）" if schedule_enabled else "已停用"},
-            {
-                "label": "最近心跳",
-                "value": beat_at.strftime("%Y-%m-%d %H:%M:%S") if beat_at else "未上报",
-            },
-        ],
+        "metrics": metrics,
     }
+
+
+def _active_beat_mismatch(beat_mismatch):
+    """校验版本不匹配标记是否仍在刷新（旧 Beat 每 60 秒被拒一次会持续续期）"""
+    if not beat_mismatch:
+        return None
+    reported_at = _parse_iso(beat_mismatch.get("ts"))
+    if reported_at is None:
+        return None
+    if (timezone.now() - reported_at).total_seconds() > HEARTBEAT_FRESH_SECONDS:
+        return None
+    return beat_mismatch
 
 
 def _server_info():
@@ -502,7 +551,7 @@ class OpsOverviewView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        beat_at, worker_hb, worker_meta = _read_heartbeats()
+        beat_at, worker_hb, worker_meta, beat_mismatch = _read_heartbeats()
         components = [
             check_cpu(),
             check_memory(),
@@ -510,7 +559,7 @@ class OpsOverviewView(APIView):
             check_database(),
             check_redis(),
             check_celery_worker(worker_hb, worker_meta),
-            check_celery_beat(beat_at),
+            check_celery_beat(beat_at, beat_mismatch),
         ]
         rank = {"ok": 0, "warn": 1, "error": 2}
         overall = max((c["status"] for c in components), key=lambda s: rank[s])

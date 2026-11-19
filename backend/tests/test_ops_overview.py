@@ -10,6 +10,8 @@ from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
+from django.conf import settings
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -126,6 +128,66 @@ def test_celery_beat_status_follows_heartbeat_freshness():
     missing = check_celery_beat(None)
     assert missing["status"] == "warn"
     assert "心跳" in missing["message"]
+
+
+@pytest.mark.django_db
+@override_settings(CELERY_ENV_TAG="dev", HUB_CODE_VERSION="v1")
+def test_ops_heartbeat_version_mismatch_writes_marker(monkeypatch):
+    """版本不匹配的 Beat 心跳被拒：不写 beat_hb（避免假信号），改写版本标记。"""
+    conn = MagicMock()
+    monkeypatch.setattr("django_redis.get_redis_connection", lambda name: conn)
+
+    ops_heartbeat.apply(
+        headers={"hub-env": settings.CELERY_ENV_TAG, "hub-version": "stale-beat"},
+        throw=True,
+    )
+
+    assert conn.pipeline.called is False  # 正常心跳键一律不写
+    assert conn.set.call_count == 1
+    key, payload = conn.set.call_args.args[0], conn.set.call_args.args[1]
+    assert key.endswith("ops:beat_mismatch")
+    assert conn.set.call_args.kwargs.get("ex") == 900
+    assert "stale-beat" in payload and settings.HUB_CODE_VERSION in payload
+
+
+@pytest.mark.django_db
+@override_settings(CELERY_ENV_TAG="dev", HUB_CODE_VERSION="v1")
+def test_ops_heartbeat_env_mismatch_writes_nothing(monkeypatch):
+    """跨环境心跳既不写心跳键也不写版本标记：别环境的数据不落本环境缓存。"""
+    conn = MagicMock()
+    monkeypatch.setattr("django_redis.get_redis_connection", lambda name: conn)
+
+    ops_heartbeat.apply(headers={"hub-env": "prod", "hub-version": "v1"}, throw=True)
+
+    assert conn.set.called is False
+    assert conn.pipeline.called is False
+
+
+@pytest.mark.django_db
+def test_beat_card_distinguishes_version_mismatch_from_dead_beat():
+    now = timezone.now()
+    mismatch = {
+        "beat_version": "old-hash", "worker_version": "new-hash",
+        "env": "dev", "ts": now.isoformat(),
+    }
+    # Beat 心跳未上报（被拒）+ 标记仍新鲜 → 明确指出重启 Beat，而非笼统的心跳丢失
+    card = check_celery_beat(None, mismatch)
+    assert card["status"] == "error"
+    assert "重启 Beat" in card["message"] and "old-hash" in card["message"]
+    labels = {metric["label"]: metric["value"] for metric in card["metrics"]}
+    assert labels["Beat 版本"] == "old-hash"
+    assert labels["Worker 版本"] == "new-hash"
+
+    # 心跳正常但标记新鲜 → Worker 版本混布，降级为 warn
+    mixed = check_celery_beat(now, mismatch)
+    assert mixed["status"] == "warn"
+    assert "版本不匹配" in mixed["message"]
+
+    # 标记过期（旧 Beat 已停止或已修复）→ 回到常规判定
+    expired = {"ts": (now - timedelta(seconds=600)).isoformat(),
+               "beat_version": "old", "worker_version": "new"}
+    assert check_celery_beat(None, expired)["status"] == "warn"  # 未上报 → 常规 warn
+    assert check_celery_beat(now, expired)["status"] == "ok"
 
 
 def test_percent_threshold_judgement():
