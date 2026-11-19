@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <!--
-  Enterprise Agent Hub 官网 SEO 落地页（静态、无需 JS 即可被搜索引擎完整抓取）
-  - 由 Vite 构建为 dist/index.html，Django 在根路径 / 渲染（leeadmin/index.html）
+  Enterprise Agent Hub 官网 SEO 落地页（服务端渲染文案，无需 JS 即可被搜索引擎完整抓取）
+  - 由 Vite 构建为 dist/index.html，Django 在根路径 / 经 SeoLandingPageView 渲染（leeadmin/index.html）
+  - 文案后台可配：系统配置 → 官网 SEO（标题/摘要/关键词/版权/备案号）与 系统标题（app_name）
+  - Django 模板变量 {{ app_name }}/{{ seo_title }} 等由后端注入；未配置时使用 system/seo_defaults.py 兜底值
   - 登录/注册入口指向 /app/#/login、/#/register（管理控制台 SPA，原登录页保留）
-  - 开发环境：npm run dev 后访问 http://127.0.0.1:8081/
+  - 开发环境：npm run dev 后访问 http://127.0.0.1:8081/（/ 会代理到 Django 渲染，需先启动后端 9999）
 -->
 <html lang="zh-CN">
     <head>
@@ -11,9 +13,9 @@
         <meta name="generator" content="Enterprise Agent Hub">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width,initial-scale=1.0">
-        <title>Enterprise Agent Hub｜企业级 AI Agent 业务执行与治理平台</title>
-        <meta name="description" content="Enterprise Agent Hub 将大模型 Agent 落地为企业可用的业务执行平台：Agent 编排与会话、自动化任务调度、业务工具网关、RBAC 权限治理、实时进度推送与全链路审计，助力企业安全可控地自动化执行业务。">
-        <meta name="keywords" content="Enterprise Agent Hub, AI Agent, 企业级 Agent 平台, Agent 编排, 任务自动化, 业务工具网关, RBAC 权限治理, Django, Vue3, 大模型">
+        <title>{{ seo_title }}</title>
+        <meta name="description" content="{{ seo_description }}">
+        <meta name="keywords" content="{{ seo_keywords }}">
         <meta name="robots" content="index, follow">
         <meta name="author" content="calvin lee">
         <!-- 绑定正式域名后取消注释并替换域名（canonical/og:url/og:image 需绝对地址）
@@ -22,12 +24,12 @@
         <meta property="og:image" content="https://your-domain.com/static/logo.png">
         -->
         <meta property="og:type" content="website">
-        <meta property="og:site_name" content="Enterprise Agent Hub">
-        <meta property="og:title" content="Enterprise Agent Hub｜企业级 AI Agent 业务执行与治理平台">
-        <meta property="og:description" content="Agent 编排与会话、自动化任务调度、业务工具网关、权限治理、实时推送与全链路审计——企业安全可控地自动化执行业务。">
+        <meta property="og:site_name" content="{{ app_name }}">
+        <meta property="og:title" content="{{ seo_title }}">
+        <meta property="og:description" content="{{ seo_description }}">
         <meta name="twitter:card" content="summary">
-        <meta name="twitter:title" content="Enterprise Agent Hub｜企业级 AI Agent 业务执行与治理平台">
-        <meta name="twitter:description" content="Agent 编排与会话、自动化任务调度、业务工具网关、权限治理、实时推送与全链路审计——企业安全可控地自动化执行业务。">
+        <meta name="twitter:title" content="{{ seo_title }}">
+        <meta name="twitter:description" content="{{ seo_description }}">
         <link rel="icon" href="/favicon.ico">
         <script type="application/ld+json">
         {
@@ -35,10 +37,10 @@
             "@graph": [
                 {
                     "@type": "SoftwareApplication",
-                    "name": "Enterprise Agent Hub",
+                    "name": "{{ app_name }}",
                     "applicationCategory": "BusinessApplication",
                     "operatingSystem": "Web",
-                    "description": "企业级 AI Agent 业务执行与治理平台：Agent 编排与会话、自动化任务调度、业务工具网关、RBAC 权限治理、实时进度推送与全链路审计。",
+                    "description": "{{ seo_description }}",
                     "featureList": [
                         "Agent Runtime Adapter 模型与工具调用",
                         "Task Orchestrator 持久任务状态机",
@@ -51,7 +53,7 @@
                 },
                 {
                     "@type": "Organization",
-                    "name": "Enterprise Agent Hub",
+                    "name": "{{ app_name }}",
                     "logo": "/favicon.ico"
                 }
             ]
@@ -236,7 +238,7 @@
                             </linearGradient>
                         </defs>
                     </svg>
-                    <span>Enterprise Agent Hub</span>
+                    <span>{{ app_name }}</span>
                 </a>
                 <nav class="site-nav" aria-label="页面导航">
                     <a href="#features">核心能力</a>
@@ -398,14 +400,16 @@
         <!-- 页脚 -->
         <footer class="site-footer">
             <div class="container footer-inner">
-                <div>© 2026 Enterprise Agent Hub · 企业级 AI Agent 业务执行与治理平台</div>
+                <div>{{ seo_copyright }}</div>
                 <nav class="footer-links" aria-label="快捷入口">
                     <a href="/app/#/login">登录</a>
                     <a href="/app/#/register">注册</a>
                 </nav>
+                {% if seo_icp %}
                 <div class="footer-icp">
-                    <a href="https://beian.miit.gov.cn/" target="_blank" rel="nofollow noopener">ICP备xxxxx-31</a>
+                    <a href="https://beian.miit.gov.cn/" target="_blank" rel="nofollow noopener">{{ seo_icp }}</a>
                 </div>
+                {% endif %}
             </div>
         </footer>
 
@@ -414,7 +418,7 @@
             <div class="modal-card">
                 <button class="modal-close" id="loginModalClose" type="button" aria-label="关闭登录框">&times;</button>
                 <div class="modal-head">
-                    <h3 id="loginModalTitle">登录 Enterprise Agent Hub</h3>
+                    <h3 id="loginModalTitle">登录 {{ app_name }}</h3>
                     <p>登录后即可进入管理控制台</p>
                 </div>
                 <form id="loginForm" novalidate>
@@ -458,6 +462,36 @@
                 var submitting = false;
                 var navigating = false;
                 var captchaProbed = false;
+
+                // 已登录检测：与控制台同源共用 localStorage token（logintoken/refreshtoken）。
+                // 解码 JWT 的 exp 判断会话是否有效；静态 HTML 仍保留「立即登录」供 SEO 抓取。
+                function jwtExp(token) {
+                    try {
+                        var part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+                        var bin = atob(part);
+                        var json = decodeURIComponent(Array.prototype.map.call(bin, function (ch) {
+                            return '%' + ('00' + ch.charCodeAt(0).toString(16)).slice(-2);
+                        }).join(''));
+                        return parseInt(JSON.parse(json).exp, 10) || 0;
+                    } catch (err) { return 0; }
+                }
+                function hasValidSession() {
+                    try {
+                        var now = Math.floor(Date.now() / 1000);
+                        var refresh = window.localStorage.getItem('refreshtoken');
+                        var access = window.localStorage.getItem('logintoken');
+                        // refresh 有效则控制台会自动续期 access，视为已登录
+                        return (refresh && jwtExp(refresh) > now) || (access && jwtExp(access) > now);
+                    } catch (err) { return false; }
+                }
+                if (hasValidSession()) {
+                    // 「立即登录」变为「工作台」，点击直达控制台首页；移除类名使其不再绑定登录弹窗
+                    Array.prototype.forEach.call(document.querySelectorAll('a.js-open-login'), function (a) {
+                        a.textContent = '工作台';
+                        a.setAttribute('href', '/app/#/home');
+                        a.classList.remove('js-open-login');
+                    });
+                }
 
                 function showError(msg) { errBox.textContent = msg; errBox.classList.add('is-visible'); }
                 function clearError() { errBox.classList.remove('is-visible'); }

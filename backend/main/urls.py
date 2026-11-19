@@ -35,7 +35,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 # 自定义
 from utils.streamingmedia_response import streamingmedia_serve
 from system.views.login import LoginView, CaptchaView
-from system.views.frontend import h5web
+from system.views.frontend import h5web, SeoLandingPageView
 from system.views.leeapp import leeapp_index, leeapp_static
 
 urlpatterns = [
@@ -110,10 +110,10 @@ urlpatterns += [
 
     path("favicon.ico", RedirectView.as_view(url=r"static/favicon.ico")),
 
-    # 官网 SEO 落地页：静态可抓取内容，登录/注册入口直达 /app/#/login、/#/register
+    # 官网 SEO 落地页：文案由「系统配置 → 官网 SEO」分组后台可配，登录/注册入口直达 /app/#/login、/#/register
     path(
         "",
-        TemplateView.as_view(template_name="leeadmin/index.html"),
+        SeoLandingPageView.as_view(),
         name="官网SEO落地页",
     ),
     # 管理控制台 SPA 入口（hash 路由，如 /app/#/login）；APPEND_SLASH=False，故带斜杠与不带斜杠都注册

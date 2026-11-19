@@ -16,6 +16,7 @@ from system.models import (
     SystemConfig,
     Dictionary,
 )
+from system.seo_defaults import SEO_LANDING_DEFAULTS
 
 
 class Initialize:
@@ -869,6 +870,54 @@ class Initialize:
                 "form_item_type": 0,
             },
         )
+
+        # 官网 SEO 落地页配置分组（根路径 / 的可编辑文案）
+        seo, _ = SystemConfig.objects.get_or_create(
+            key="seo",
+            defaults={
+                "creator_id": "0", "title": "官网 SEO",
+                "sort": 5, "status": True, "form_item_type": 0,
+            },
+        )
+        seo_children = [
+            {
+                "key": "title", "title": "SEO 标题",
+                "value": SEO_LANDING_DEFAULTS["title"], "sort": 50,
+                "form_item_type": 0,
+                "placeholder": "浏览器标签与搜索结果展示的标题",
+                "tip": "建议 30 字以内，包含平台名称与核心定位",
+            },
+            {
+                "key": "description", "title": "SEO 摘要",
+                "value": SEO_LANDING_DEFAULTS["description"], "sort": 40,
+                "form_item_type": 3,
+                "tip": "搜索结果摘要，建议 80~120 字，概括平台核心价值",
+            },
+            {
+                "key": "keywords", "title": "SEO 关键词",
+                "value": SEO_LANDING_DEFAULTS["keywords"], "sort": 30,
+                "form_item_type": 0,
+                "tip": "英文逗号分隔，如：AI Agent,任务自动化",
+            },
+            {
+                "key": "copyright", "title": "版权信息",
+                "value": SEO_LANDING_DEFAULTS["copyright"], "sort": 20,
+                "form_item_type": 0,
+                "tip": "官网落地页页脚展示的版权文案",
+            },
+            {
+                "key": "icp", "title": "ICP 备案号",
+                "value": SEO_LANDING_DEFAULTS["icp"], "sort": 10,
+                "form_item_type": 0,
+                "tip": "落地页页脚备案号文案，留空则不展示",
+            },
+        ]
+        for item in seo_children:
+            key = item.pop("key")
+            SystemConfig.objects.get_or_create(
+                key=key, parent=seo,
+                defaults={"creator_id": "0", "status": True, **item},
+            )
         print("====================== end init system config ======================")
 
     def init_dictionary(self):
