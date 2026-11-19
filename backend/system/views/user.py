@@ -89,7 +89,10 @@ class UserImportSerializer(CustomModelSerializer):
     username = serializers.CharField(
         max_length=50,
         validators=[
-            UniqueValidator(queryset=Users.objects.all(), message="账号必须唯一")
+            # 账号查重不区分大小写，与登录的 iexact 匹配保持一致
+            UniqueValidator(
+                queryset=Users.objects.all(), lookup="iexact", message="账号必须唯一"
+            )
         ],
     )
     password = serializers.CharField(required=False, write_only=True, allow_blank=False)
@@ -124,7 +127,10 @@ class UserCreateSerializer(CustomModelSerializer):
     username = serializers.CharField(
         max_length=50,
         validators=[
-            UniqueValidator(queryset=Users.objects.all(), message="账号必须唯一")
+            # 账号查重不区分大小写，与登录的 iexact 匹配保持一致
+            UniqueValidator(
+                queryset=Users.objects.all(), lookup="iexact", message="账号必须唯一"
+            )
         ],
     )
     password = serializers.CharField(required=False, write_only=True, allow_blank=False)
@@ -160,7 +166,10 @@ class UserUpdateSerializer(CustomModelSerializer):
     username = serializers.CharField(
         max_length=50,
         validators=[
-            UniqueValidator(queryset=Users.objects.all(), message="账号必须唯一")
+            # 账号查重不区分大小写，与登录的 iexact 匹配保持一致
+            UniqueValidator(
+                queryset=Users.objects.all(), lookup="iexact", message="账号必须唯一"
+            )
         ],
     )
     password = serializers.CharField(required=False, allow_blank=True)

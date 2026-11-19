@@ -82,7 +82,8 @@ class LoginView(CustomAPIView):
             return True, None
 
         redis_conn = get_redis_connection("default")
-        key = f"login_attempts:{username}"
+        # 账号不区分大小写，失败计数按小写归一，避免大小写变体绕过锁定
+        key = f"login_attempts:{(username or '').lower()}"
         attempts = redis_conn.get(key)
 
         if attempts and int(attempts) >= LOGIN_ERROR_RETRY_TIMES:
@@ -99,7 +100,8 @@ class LoginView(CustomAPIView):
             return
 
         redis_conn = get_redis_connection("default")
-        key = f"login_attempts:{username}"
+        # 账号不区分大小写，失败计数按小写归一，避免大小写变体绕过锁定
+        key = f"login_attempts:{(username or '').lower()}"
 
         # 增加失败次数
         attempts = redis_conn.incr(key)
@@ -111,7 +113,8 @@ class LoginView(CustomAPIView):
     def clear_login_attempts(self, username):
         """清除登录失败记录"""
         redis_conn = get_redis_connection("default")
-        key = f"login_attempts:{username}"
+        # 与 check/record 保持一致，按小写归一
+        key = f"login_attempts:{(username or '').lower()}"
         redis_conn.delete(key)
 
     def post(self, request):
@@ -150,7 +153,7 @@ class LoginView(CustomAPIView):
                     save_login_log(request=request, status=False, msg=msg)
                     return ErrorResponse(msg=msg)
 
-        user = Users.objects.filter(username=username).first()
+        user = Users.objects.filter(username__iexact=username).first()
 
         if user and getattr(user, 'is_delete', False):
                 msg = "该账号已被删除"

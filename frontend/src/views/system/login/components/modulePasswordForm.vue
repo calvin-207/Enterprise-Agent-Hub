@@ -7,6 +7,12 @@
 		<el-form-item prop="password">
 			<el-input v-model="formData.password" prefix-icon="lock" clearable show-password placeholder="请输入密码"></el-input>
 		</el-form-item>
+		<el-form-item class="remember-item">
+			<div class="remember-options">
+				<el-checkbox v-model="rememberAccount" @change="handleRememberAccountChange">记住账号</el-checkbox>
+				<el-checkbox v-model="rememberPassword" @change="handleRememberPasswordChange">记住密码</el-checkbox>
+			</div>
+		</el-form-item>
 		<el-form-item prop="captcha" v-if="userState.sysConfig.loginCaptcha">
             <el-input type="text" prefix-icon="circle-check" v-model.trim="formData.captcha" auto-complete="off" placeholder="验证码" :rules="userState.sysConfig.loginCaptcha?captchaRules:[]">
                   <template #append>
@@ -23,6 +29,8 @@
 <script setup>
 	import {ref, onMounted,watch,computed ,nextTick} from 'vue'
 	import {autoStorage,setToken,setRefreshToken} from '@/utils/util'
+	import CryptoJS from 'crypto-js'
+	import Cookies from 'js-cookie'
 	import { ElMessage } from 'element-plus'
 	import { useRouter,useRoute } from 'vue-router'
 	import Api from "@/api/api"
@@ -63,6 +71,68 @@
 	})
 	let islogining = ref(false)
 
+	// ========== 记住账号 / 记住密码 ==========
+	// 存储在 Cookie 中（退出登录会清空 localStorage，但不会清除 Cookie），有效期 30 天
+	const REMEMBER_KEY = 'rememberLoginInfo'
+	const REMEMBER_EXPIRES = 30
+
+	let rememberAccount = ref(false)
+	let rememberPassword = ref(false)
+
+	// 勾选"记住密码"时，自动勾选"记住账号"
+	function handleRememberPasswordChange(val) {
+		if (val) rememberAccount.value = true
+	}
+
+	// 取消"记住账号"时，自动取消"记住密码"
+	function handleRememberAccountChange(val) {
+		if (!val) rememberPassword.value = false
+	}
+
+	// 页面加载时回填记住的账号密码
+	// 注意：这里用 CryptoJS 口令形式（EvpKDF 派生密钥）而非 util.js 的 crypto.AES，
+	// 因为 LS_ENCRYPTION_KEY 为 25 字节，不是合法的 AES 密钥长度，后者加解密不对称
+	function initRememberInfo() {
+		try {
+			const saved = Cookies.get(REMEMBER_KEY)
+			if (!saved) return
+			const info = JSON.parse(saved)
+			if (info.rememberPassword && info.username && info.password) {
+				formData.value.username = info.username
+				const password = CryptoJS.AES.decrypt(info.password, sysConfig.LS_ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8)
+				formData.value.password = password || ''
+				rememberAccount.value = true
+				rememberPassword.value = true
+			} else if (info.rememberAccount && info.username) {
+				formData.value.username = info.username
+				rememberAccount.value = true
+			}
+		} catch (e) {
+			// 数据异常时清除，避免影响登录
+			Cookies.remove(REMEMBER_KEY)
+		}
+	}
+
+	// 登录成功后保存/清除记住信息（密码 AES 加密存储，避免明文落盘）
+	function saveRememberInfo() {
+		if (rememberPassword.value) {
+			Cookies.set(REMEMBER_KEY, JSON.stringify({
+				username: formData.value.username,
+				password: CryptoJS.AES.encrypt(formData.value.password, sysConfig.LS_ENCRYPTION_KEY).toString(),
+				rememberAccount: true,
+				rememberPassword: true,
+			}), { expires: REMEMBER_EXPIRES })
+		} else if (rememberAccount.value) {
+			Cookies.set(REMEMBER_KEY, JSON.stringify({
+				username: formData.value.username,
+				rememberAccount: true,
+				rememberPassword: false,
+			}), { expires: REMEMBER_EXPIRES })
+		} else {
+			Cookies.remove(REMEMBER_KEY)
+		}
+	}
+
 	/**
 	* 获取验证码
 	*/
@@ -72,7 +142,6 @@
 				formData.value.captcha = null
 				formData.value.captchaKey = res.data.key
 				image_base.value = res.data.image_base
-        console.log('====', formData)
 			}else{
 				ElMessage.error(res.msg)
 			}
@@ -96,6 +165,7 @@
 			if (res.code === 2000) {
 				islogining.value = true
 				// 3. 登录成功处理
+				saveRememberInfo()
 				setToken('logintoken', res.data.access);
 				setRefreshToken('refreshtoken', res.data.refresh);
 				await userState.getSystemWebRouter(router)
@@ -137,6 +207,8 @@
 	}
 
 	onMounted(()=>{
+		//回填记住的账号密码
+		initRememberInfo()
 		//请求数据
 		getCaptchas()
 	})
@@ -144,6 +216,16 @@
 </script>
 
 <style scoped>
+	.remember-item{
+		margin-bottom: 14px;
+	}
+	.remember-options{
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		width: 100%;
+		height: 24px;
+	}
 	.login-captcha{
 		cursor: pointer;
 		height: 38px;

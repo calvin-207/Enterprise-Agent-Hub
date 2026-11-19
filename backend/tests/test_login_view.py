@@ -3,6 +3,8 @@
 
 覆盖登录流程的核心安全逻辑：
 - 正确账号密码登录成功
+- 账号不区分大小写（SuperAdmin/superadmin 均可登录）
+- 登录失败计数按小写归一，大小写变体共享同一锁定计数
 - 错误密码返回错误信息
 - 禁用用户（is_active=False）无法登录
 - 非员工用户（is_staff=False）无法登录
@@ -84,6 +86,32 @@ class TestLoginView:
         assert "access" in token_data
         assert "refresh" in token_data
         assert response.data["msg"] == "登录成功"
+
+    def test_login_username_case_insensitive(self, admin_user, mock_external_deps):
+        """账号不区分大小写：全小写/混合大小写变体应能登录成功"""
+        for username in ("superadmin", "SUPERADMIN", "SuperAdMiN"):
+            factory = RequestFactory()
+            request = make_login_request(
+                factory, {"username": username, "password": "a123456"}
+            )
+            view = LoginView()
+            response = view.post(request)
+
+            assert response.data["code"] == 2000, f"账号 {username} 应能登录"
+            assert response.data["msg"] == "登录成功"
+
+    def test_login_failure_counter_case_normalized(
+        self, admin_user, mock_external_deps
+    ):
+        """登录失败计数应按小写归一，大小写变体共享同一计数器"""
+        factory = RequestFactory()
+        request = make_login_request(
+            factory, {"username": "SuperAdmin", "password": "wrongpass"}
+        )
+        view = LoginView()
+        view.post(request)
+
+        mock_external_deps.incr.assert_called_with("login_attempts:superadmin")
 
     def test_login_wrong_password(self, admin_user, mock_external_deps):
         """错误密码应返回错误，不返回 token"""
