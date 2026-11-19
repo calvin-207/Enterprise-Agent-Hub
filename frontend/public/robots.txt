@@ -1,0 +1,12 @@
+# Enterprise Agent Hub robots.txt
+# 官网落地页位于 /，管理控制台位于 /app/
+
+User-agent: *
+Allow: /
+# 管理控制台为需登录的 SPA 空壳，接口与媒体目录无需收录
+Disallow: /app
+Disallow: /api/
+Disallow: /media/
+
+# 绑定正式域名后取消下行注释并替换域名，同时在 sitemap.xml 中替换占位域名
+# Sitemap: https://your-domain.com/sitemap.xml

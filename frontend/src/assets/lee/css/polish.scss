@@ -28,15 +28,16 @@ body,
   -webkit-font-smoothing: antialiased;
 }
 
-/* Restore visible keyboard focus. The legacy app.scss disables outlines. */
-:where(a, button, input, textarea, select, [role="button"], [tabindex]):focus-visible,
-.el-button:focus-visible,
-.el-input__wrapper:focus-within {
+/* Restore visible keyboard focus. The legacy app.scss disables outlines.
+ * Form controls (input/textarea/select) are intentionally excluded:
+ * Element Plus renders tabindex="0" on its inner <input> and already draws
+ * its own inset focus line (.el-input__wrapper.is-focus etc.), so stacking
+ * another outline on the raw input produced multiple concentric rings
+ * around the whole component. */
+:where(a, button, [role="button"]):focus-visible,
+.el-button:focus-visible {
   outline: 2px solid var(--el-color-primary) !important;
   outline-offset: 2px;
-}
-.el-input__wrapper:focus-within {
-  outline-offset: 1px;
 }
 :where(a, button, [role="button"]):focus:not(:focus-visible) {
   outline: none;

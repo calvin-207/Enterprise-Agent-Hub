@@ -109,9 +109,34 @@ urlpatterns += [
     re_path(r'^leeapp(/.*)?$', leeapp_index, name="leeapp路由兜底"),
 
     path("favicon.ico", RedirectView.as_view(url=r"static/favicon.ico")),
+
+    # 官网 SEO 落地页：静态可抓取内容，登录/注册入口直达 /app/#/login、/#/register
     path(
         "",
         TemplateView.as_view(template_name="leeadmin/index.html"),
+        name="官网SEO落地页",
+    ),
+    # 管理控制台 SPA 入口（hash 路由，如 /app/#/login）；APPEND_SLASH=False，故带斜杠与不带斜杠都注册
+    path(
+        "app/",
+        TemplateView.as_view(template_name="leeadmin/app.html"),
         name="后台管理默认页面",
+    ),
+    path("app", TemplateView.as_view(template_name="leeadmin/app.html")),
+
+    # SEO 基础文件（构建产物 leeadmin/robots.txt、leeadmin/sitemap.xml）
+    path(
+        "robots.txt",
+        TemplateView.as_view(
+            template_name="leeadmin/robots.txt",
+            content_type="text/plain; charset=utf-8",
+        ),
+    ),
+    path(
+        "sitemap.xml",
+        TemplateView.as_view(
+            template_name="leeadmin/sitemap.xml",
+            content_type="application/xml; charset=utf-8",
+        ),
     ),
 ]

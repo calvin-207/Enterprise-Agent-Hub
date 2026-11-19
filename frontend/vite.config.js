@@ -12,9 +12,26 @@ let alias = {
     '@': pathResolve('./src/'),
 }
 
+// 开发环境路径重写：根路径 / 为官网 SEO 落地页，管理控制台入口在 /app/（与线上 Django 路由保持一致，对应 app.html）
+function devAppPathRewrite() {
+    return {
+        name: 'dev-app-path-rewrite',
+        configureServer(server) {
+            server.middlewares.use((req, _res, next) => {
+                const pathname = (req.url || '').split('?')[0];
+                if (pathname === '/app' || pathname === '/app/') {
+                    req.url = '/app.html';
+                }
+                next();
+            });
+        },
+    };
+}
+
 export default defineConfig({
     plugins: [
         vue(),
+        devAppPathRewrite(),
         VueSetupExtend(),
         createSvgIconsPlugin({
             iconDirs: [resolve(process.cwd(), 'src/assets/lee/icons/svg')], // 你的 SVG 目录
@@ -67,7 +84,12 @@ export default defineConfig({
             },
             mangle: true, // 启用名称混淆
         },
+        // 多页应用：/ 官网 SEO 落地页（index.html）+ /app/ 管理控制台 SPA 入口（app.html）
         rollupOptions:{
+            input: {
+                index: resolve(__dirname, 'index.html'),
+                app: resolve(__dirname, 'app.html'),
+            },
             output:{
                 entryFileNames: `static/[name].[hash].js`,
                 chunkFileNames: `static/[name].[hash].js`,
