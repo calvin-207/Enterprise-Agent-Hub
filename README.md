@@ -58,6 +58,8 @@ Python, Django, Django REST Framework, Django Channels (ASGI / WebSocket), chann
 
 ## Documents
 
+- **[macOS 本地部署与功能验收指南 / Local setup and acceptance guide](docs/development/本地部署与功能验收指南.md)**: Django, Redis, Celery, Vue, Agent Mock, provider model sync and optional live model checks.
+
 - **[平台层架构设计 V1（核心入口）](docs/platform-architecture/README.md)** — 总体架构、模块边界、领域模型、API、状态机、权限治理与 Codex 任务
 - [现有 Celery 与数据库定时计划 V2](docs/development/automation-scheduler.md)
 - **[Agent Runtime P1-C：模型适配、工具调用与执行中心](docs/platform-architecture/10-p1c-runtime-implementation.md)**
