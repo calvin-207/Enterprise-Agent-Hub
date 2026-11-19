@@ -19,6 +19,7 @@ from agent_catalog.services import (
 )
 from model_gateway.models import ModelProfile, ModelProvider
 from tool_gateway.models import ToolDefinition
+from utils.exception import format_validation_errors
 
 
 def ok(data, http=status.HTTP_200_OK):
@@ -26,7 +27,8 @@ def ok(data, http=status.HTTP_200_OK):
 
 
 def bad(message, http=status.HTTP_400_BAD_REQUEST):
-    return Response({"code": 400, "msg": str(message)}, status=http)
+    # message 可能是 serializer.errors（ErrorDetail 嵌套结构），统一压平为可读文本
+    return Response({"code": 400, "msg": format_validation_errors(message)}, status=http)
 
 
 class PlatformAPI(APIView):

@@ -29,11 +29,34 @@ request.interceptors.request.use((config) => {
 // Single-flight refresh. Every waiting request receives the same resolution
 // or rejection; a failed refresh must never leave a Promise pending forever.
 let refreshPromise = null;
+let loggingOut = false;
 
 function handleLogout() {
+  // Parallel 401s (e.g. page-mount Promise.all) share one refresh failure;
+  // only surface the logout toast/redirect once.
+  if (loggingOut) return;
+  loggingOut = true;
   autoStorage.clear();
   ElMessage.error("登录信息失效，请重新登录");
   window.location.href = "/";
+}
+
+function isRefreshCall(config) {
+  return typeof config?.url === "string" && config.url.includes("/api/token/refresh/");
+}
+
+// Both auth-failure dialects converge here: wrapped bodies with code 4001/401
+// (HTTP 200, system endpoints) AND SimpleJWT's native HTTP 401 (platform
+// endpoints like /api/platform/v1/*). Refresh once, retry once, else logout.
+async function retryWithRefresh(original) {
+  if (!original || original._authRetried || isRefreshCall(original)) {
+    handleLogout();
+    throw new Error("Authentication expired after retry");
+  }
+  original._authRetried = true;
+  const accessToken = await refreshAccessToken();
+  original.headers.Authorization = sysConfig.TOKEN_PREFIX + accessToken;
+  return request(original);
 }
 
 function refreshAccessToken() {
@@ -58,19 +81,13 @@ function refreshAccessToken() {
 
 request.interceptors.response.use(
   async (response) => {
-    if (response.data?.code !== 4001 && response.data?.code !== 401) {
+    const authExpired =
+      response.data?.code === 4001 || response.data?.code === 401 || response.status === 401;
+    if (!authExpired) {
       return response;
     }
-    const original = response.config;
-    if (original._authRetried) {
-      handleLogout();
-      throw new Error("Authentication expired after retry");
-    }
-    original._authRetried = true;
     try {
-      const accessToken = await refreshAccessToken();
-      original.headers.Authorization = sysConfig.TOKEN_PREFIX + accessToken;
-      return request(original);
+      return await retryWithRefresh(response.config);
     } catch (error) {
       handleLogout();
       return Promise.reject(error);
@@ -80,20 +97,58 @@ request.interceptors.response.use(
     if (axios.isCancel(error)) {
       return Promise.reject(error);
     }
+    // Native HTTP 401 (SimpleJWT "token_not_valid"): refresh + retry once
+    // exactly like the wrapped business-code dialect above.
+    if (error.response?.status === 401) {
+      return retryWithRefresh(error.config).catch((refreshError) => {
+        handleLogout();
+        return Promise.reject(refreshError);
+      });
+    }
     if (error.response?.status === 404 && import.meta.env.PROD) {
       window.location.href = "/404";
-    } else if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
-      ElMessage.error("网络超时");
-    } else if (error.message === "Network Error") {
-      ElMessage.error("网络连接错误");
-    } else if (error.response) {
-      ElMessage.error(error.response.statusText || "请求失败");
-    } else {
-      ElMessage.error("网络请求失败");
     }
+    const message = resolveErrorMessage(error);
+    // 统一在拦截层提示一次，并改写 error.message 供页面 catch 使用；
+    // handled 标记告诉页面无需再次弹窗
+    error.message = message;
+    error.handled = true;
+    ElMessage.error(message);
     return Promise.reject(error);
   },
 );
+
+// HTTP 状态码兜底文案（后端未返回 msg 时使用）
+const STATUS_MESSAGES = {
+  400: "请求参数错误",
+  401: "登录状态已失效，请重新登录",
+  403: "没有权限执行此操作",
+  404: "请求的资源不存在",
+  405: "请求方式不被支持",
+  409: "数据冲突，请刷新后重试",
+  500: "服务器内部错误",
+  502: "网关错误，请稍后重试",
+  503: "服务暂不可用，请稍后重试",
+  504: "网关超时，请稍后重试",
+};
+
+function resolveErrorMessage(error) {
+  const data = error.response?.data;
+  // 后端标准响应 {code, msg}，优先展示后端给出的具体原因
+  if (data && typeof data === "object" && typeof data.msg === "string" && data.msg) {
+    return data.msg;
+  }
+  if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+    return "网络超时";
+  }
+  if (error.message === "Network Error") {
+    return "网络连接错误";
+  }
+  if (error.response) {
+    return STATUS_MESSAGES[error.response.status] || error.response.statusText || "请求失败";
+  }
+  return "网络请求失败";
+}
 
 function ajax(opt, method) {
   var token = getToken();

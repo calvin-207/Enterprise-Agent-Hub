@@ -82,7 +82,7 @@ async function initialize() {
     agents.value = result.data || [];
     agentId.value = agents.value.find(x => x.status === "active")?.id || "";
     if (agentId.value) await loadSessions();
-  } catch (error) { ElMessage.error(error?.message || "加载 Agent 失败"); }
+  } catch (error) { if (!error?.handled) ElMessage.error(error?.message || "加载 Agent 失败"); }
 }
 async function loadSessions() {
   stopStream(); selected.value = null; messages.value = [];
@@ -91,7 +91,7 @@ async function loadSessions() {
     if (result.code !== 2000) throw Error(result.msg);
     sessions.value = (result.data || []).filter(s => s.agent_id === agentId.value);
     if (sessions.value.length) await selectSession(sessions.value[0]);
-  } catch (error) { ElMessage.error(error?.message || "加载会话失败"); }
+  } catch (error) { if (!error?.handled) ElMessage.error(error?.message || "加载会话失败"); }
 }
 async function newConversation() {
   if (!agentId.value) return ElMessage.warning("请先选择 Agent");
@@ -100,7 +100,7 @@ async function newConversation() {
     if (answer.code !== 2000) throw Error(answer.msg);
     await loadSessions();
     await selectSession(answer.data);
-  } catch (error) { ElMessage.error(error?.message || "创建会话失败"); }
+  } catch (error) { if (!error?.handled) ElMessage.error(error?.message || "创建会话失败"); }
 }
 async function selectSession(session) {
   stopStream();
@@ -124,7 +124,7 @@ async function refreshMessages() {
     messages.value = response.data || [];
     await nextTick();
     if (messageArea.value) messageArea.value.scrollTop = messageArea.value.scrollHeight;
-  } catch (error) { ElMessage.error(error?.message || "读取消息失败"); }
+  } catch (error) { if (!error?.handled) ElMessage.error(error?.message || "读取消息失败"); }
 }
 async function send() {
   if (!selected.value || activeRun.value || !draft.value.trim()) return;
@@ -136,7 +136,7 @@ async function send() {
     draft.value = "";
     await refreshMessages();
     void watchRun(response.data.id);
-  } catch (error) { ElMessage.error(error?.message || "提交任务失败"); }
+  } catch (error) { if (!error?.handled) ElMessage.error(error?.message || "提交任务失败"); }
   finally { sending.value = false; }
 }
 async function watchRun(id) {

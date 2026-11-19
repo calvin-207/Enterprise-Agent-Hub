@@ -129,7 +129,7 @@ async function reload() {
     if (a.code !== 2000 || r.code !== 2000) throw new Error(a.msg || r.msg || "加载失败");
     agents.value = a.data || [];
     runs.value = r.data || [];
-  } catch (e) { ElMessage.error(e?.message || "加载执行记录失败"); }
+  } catch (e) { if (!e?.handled) ElMessage.error(e?.message || "加载执行记录失败"); }
   finally { loading.value = false; }
 }
 async function submit() {
@@ -144,7 +144,7 @@ async function submit() {
     ElMessage.success("任务已创建，等待 Worker 执行");
     await reload();
     await openDetail(r.data);
-  } catch (e) { ElMessage.error(e?.message || "任务提交失败"); }
+  } catch (e) { if (!e?.handled) ElMessage.error(e?.message || "任务提交失败"); }
   finally { submitting.value = false; }
 }
 async function openDetail(row) {
@@ -163,7 +163,7 @@ async function refreshDetail() {
     steps.value = s.data || [];
     events.value = e.data || [];
     usage.value = u.data;
-  } catch (err) { ElMessage.error(err?.message || "读取详情失败"); }
+  } catch (err) { if (!err?.handled) ElMessage.error(err?.message || "读取详情失败"); }
   finally { detailLoading.value = false; }
 }
 async function stopRun(row) {
@@ -177,7 +177,7 @@ async function stopRun(row) {
     ElMessage.success("取消请求已提交");
     await reload();
     if (showDetail.value && detail.value?.id === row.id) await refreshDetail();
-  } catch (error) { ElMessage.error(error?.message || "取消失败"); }
+  } catch (error) { if (!error?.handled) ElMessage.error(error?.message || "取消失败"); }
   finally { canceling.value = false; }
 }
 onMounted(() => {

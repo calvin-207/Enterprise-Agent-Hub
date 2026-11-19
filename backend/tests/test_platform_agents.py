@@ -107,6 +107,13 @@ def test_user_grant_and_revocation_are_rechecked(client_admin, configured_agent,
     assert client_admin.post(f"/api/platform/v1/agents/{agent.pk}/access-grants/", {
         "user": member.pk, "capability": "manage"
     }, format="json").status_code == 400
+    # 校验失败时 msg 必须是可读文本，不允许泄漏 ErrorDetail repr（如 {'user': [ErrorDetail(string=...)]}）
+    missing_user = client_admin.post(f"/api/platform/v1/agents/{agent.pk}/access-grants/", {
+        "user": 999999, "capability": "run"
+    }, format="json")
+    assert missing_user.status_code == 400
+    assert "ErrorDetail" not in missing_user.data["msg"]
+    assert missing_user.data["msg"].startswith("user:")
     assert client.get(f"/api/platform/v1/agents/{agent.pk}/").status_code == 200
     assert str(version.pk) in [str(x["id"]) for x in client.get(
         f"/api/platform/v1/agents/{agent.pk}/versions/"

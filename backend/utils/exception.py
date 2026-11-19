@@ -25,6 +25,35 @@ from utils.jsonResponse import ErrorResponse
 logger = logging.getLogger(__name__)
 
 
+def format_validation_errors(detail):
+    """
+    @Remark: 把 DRF 校验错误压平为可读文本，避免 ErrorDetail repr 泄漏到接口
+    例: {'user': [ErrorDetail(string='无效主键 “2” － 对象不存在。', code='does_not_exist')]}
+        -> "user: 无效主键 “2” － 对象不存在。"
+    对普通字符串原样返回，可安全地用于任何 msg 场景。
+    """
+    def to_text(value):
+        if isinstance(value, dict):
+            parts = []
+            for key, item in value.items():
+                text = to_text(item)
+                if not text:
+                    continue
+                # non_field_errors / detail 是整表错误，不再拼字段名
+                if key in ("non_field_errors", "detail"):
+                    parts.append(text)
+                else:
+                    parts.append("%s: %s" % (key, text))
+            return "；".join(parts)
+        if isinstance(value, (list, tuple)):
+            return "；".join(t for t in (to_text(v) for v in value) if t)
+        if value is None or value == "":
+            return ""
+        return str(value)
+
+    return to_text(detail) or "请求参数错误"
+
+
 def CustomExceptionHandler(ex, context):
     """
     统一异常拦截处理
@@ -53,29 +82,7 @@ def CustomExceptionHandler(ex, context):
         code = 4001
         msg = ex.detail
     elif isinstance(ex, exceptions.ValidationError):
-        msg = str(ex.detail)
-        errorMsg = msg
-        try:
-            for key in errorMsg:
-                if key:
-                    msg = "%s:%s" % (key, errorMsg[key][0])
-                else:
-                    msg = errorMsg[key][0]
-        except Exception:
-            # {comment_author: {non_field_errors: ["无效数据。期待为字典类型，得到的是 str 。"]}, images: ["Not a valid string."]}
-            if isinstance(errorMsg, list):
-                msg = errorMsg[0]
-            elif isinstance(errorMsg, dict):
-                values_list = list(errorMsg.values())
-                keys_list = list(errorMsg.keys())
-                if "non_field_errors" in values_list[0]:
-                    msg = keys_list[0] + ":" + values_list[0]["non_field_errors"][0]
-                elif isinstance(values_list[0], list):
-                    msg = keys_list[0] + ":" + values_list[0][0]
-                else:
-                    msg = errorMsg[0]
-            else:
-                msg = errorMsg
+        msg = format_validation_errors(ex.detail)
     elif "django.db.utils.IntegrityError" in str(type(ex)):
         msg = str(ex)
         res = msg.split(", ")

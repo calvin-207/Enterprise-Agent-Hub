@@ -157,7 +157,7 @@ async function load() {
     total.value = response.data.total || 0;
     counts.value = response.data.counts || {};
   } catch (error) {
-    ElMessage.error(error?.message || "获取任务列表失败");
+    if (!error?.handled) ElMessage.error(error?.message || "获取任务列表失败");
   } finally {
     loading.value = false;
   }
@@ -182,7 +182,7 @@ async function submit() {
     ElMessage.success("任务已提交，请关注执行状态");
     await load();
   } catch (error) {
-    ElMessage.error(error?.message || "提交任务失败");
+    if (!error?.handled) ElMessage.error(error?.message || "提交任务失败");
   } finally {
     submitting.value = false;
   }
@@ -203,7 +203,7 @@ async function retry(row) {
     statusFilter.value = "";
     await load();
   } catch (error) {
-    ElMessage.error(error?.message || "重试失败");
+    if (!error?.handled) ElMessage.error(error?.message || "重试失败");
   } finally {
     submitting.value = false;
   }
@@ -221,7 +221,7 @@ async function refreshDetail() {
     if (response.code !== 2000) throw new Error(response.msg || "获取详情失败");
     detail.value = response.data;
   } catch (error) {
-    ElMessage.error(error?.message || "刷新详情失败");
+    if (!error?.handled) ElMessage.error(error?.message || "刷新详情失败");
   } finally {
     detailLoading.value = false;
   }

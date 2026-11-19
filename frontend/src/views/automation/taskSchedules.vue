@@ -209,7 +209,7 @@ async function reload() {
     definitions.value = defs.data || [];
     schedules.value = plans.data || [];
   } catch (error) {
-    ElMessage.error(error?.message || "无法加载定时计划");
+    if (!error?.handled) ElMessage.error(error?.message || "无法加载定时计划");
   } finally {
     loading.value = false;
   }
@@ -235,7 +235,7 @@ async function saveDefinition() {
     ElMessage.success("任务定义已保存");
     await reload();
   } catch (error) {
-    ElMessage.error(error?.message || "保存失败");
+    if (!error?.handled) ElMessage.error(error?.message || "保存失败");
   } finally {
     saving.value = false;
   }
@@ -280,7 +280,7 @@ async function saveSchedule() {
     ElMessage.success("计划已保存，Beat 将自动同步");
     await reload();
   } catch (error) {
-    ElMessage.error(error?.message || "保存失败");
+    if (!error?.handled) ElMessage.error(error?.message || "保存失败");
   } finally {
     saving.value = false;
   }
@@ -294,7 +294,7 @@ async function toggleSchedule(row, enabled) {
     await reload();
     ElMessage.success(enabled ? "计划已启用" : "计划已暂停");
   } catch (error) {
-    ElMessage.error(error?.message || "切换失败");
+    if (!error?.handled) ElMessage.error(error?.message || "切换失败");
   } finally { busyId.value = null; }
 }
 
@@ -306,7 +306,7 @@ async function toggleDefinition(row, enabled) {
     await reload();
     ElMessage.success(enabled ? "定义已启用" : "定义已停用，相关计划同时停发");
   } catch (error) {
-    ElMessage.error(error?.message || "切换失败");
+    if (!error?.handled) ElMessage.error(error?.message || "切换失败");
   } finally { busyId.value = null; }
 }
 
@@ -319,7 +319,7 @@ async function removeSchedule(row) {
     if (result.code !== 2000) throw new Error(result.msg);
     ElMessage.success("计划已删除");
     await reload();
-  } catch (error) { ElMessage.error(error?.message || "删除失败"); }
+  } catch (error) { if (!error?.handled) ElMessage.error(error?.message || "删除失败"); }
 }
 
 async function removeDefinition(row) {
@@ -331,7 +331,7 @@ async function removeDefinition(row) {
     if (result.code !== 2000) throw new Error(result.msg);
     ElMessage.success("定义及其计划已删除");
     await reload();
-  } catch (error) { ElMessage.error(error?.message || "删除失败"); }
+  } catch (error) { if (!error?.handled) ElMessage.error(error?.message || "删除失败"); }
 }
 
 async function runNow(row) {
@@ -341,7 +341,7 @@ async function runNow(row) {
     if (result.code !== 2000) throw new Error(result.msg);
     ElMessage.success("任务已提交，请到「自动化任务」查看执行结果");
   } catch (error) {
-    ElMessage.error(error?.message || "提交失败");
+    if (!error?.handled) ElMessage.error(error?.message || "提交失败");
   } finally { busyId.value = null; }
 }
 
