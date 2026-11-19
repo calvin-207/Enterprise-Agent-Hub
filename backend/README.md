@@ -2,6 +2,8 @@
 - config.py中可配置支持SQLITE3、POSTGRESQL（安装psycopg2库）
 - 如需集成部署后端前端页面，请在前端项目根目录下执行 npm run build:backend，会自动打包静态文件到```backend/frontend/admin```目录中
 
+**首次本地部署建议先按 [本地部署与功能验收指南](../docs/development/本地部署与功能验收指南.md) 操作**（当前前端 API 地址固定指向 127.0.0.1:9999；需将 config.py_template 复制为 config.py 并调整数据库）。
+
 ## 安装依赖环境
 
 ```
