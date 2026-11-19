@@ -25,11 +25,11 @@ class TaskScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskSchedule
         fields = (
-            "id", "name", "definition", "definition_title", "minute", "hour",
+            "id", "name", "definition", "definition_title", "environment", "minute", "hour",
             "day_of_week", "day_of_month", "month_of_year", "enabled",
             "last_run_at", "last_triggered_at", "created_at", "updated_at",
         )
-        read_only_fields = ("id", "last_run_at", "last_triggered_at", "created_at", "updated_at")
+        read_only_fields = ("id", "environment", "last_run_at", "last_triggered_at", "created_at", "updated_at")
 
     def validate(self, attrs):
         fields = {

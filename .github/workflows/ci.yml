@@ -60,6 +60,8 @@ jobs:
         env:
           CELERY_BROKER_URL: redis://127.0.0.1:6379/3
           CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/4
+          # CI 环境标签：API 进程与 Worker 子进程共用，队列名 / 消息头自动匹配。
+          HUB_ENV: ci
         run: |
           set -euo pipefail
           python -m celery -A main worker --pool=solo --concurrency=1 --loglevel=WARNING --without-gossip --without-mingle --without-heartbeat > /tmp/eah-celery-worker.log 2>&1 &
@@ -71,11 +73,14 @@ jobs:
           os.environ.setdefault("DJANGO_SETTINGS_MODULE", "main.settings")
           import django
           django.setup()
+          from django.conf import settings
           from main.celery import app as celery_app
           from system.tasks import ping
           from celery.exceptions import TimeoutError
 
-          assert celery_app.conf.task_default_queue == "default"
+          # 默认队列必须携带环境标签，Worker 与发布方由此物理隔离。
+          assert celery_app.conf.task_default_queue == f"hub-{settings.CELERY_ENV_TAG}", celery_app.conf.task_default_queue
+          assert settings.CELERY_ENV_TAG == "ci", settings.CELERY_ENV_TAG
 
           for attempt in range(5):
               try:
@@ -83,6 +88,9 @@ jobs:
                   payload = result.get(timeout=10)
                   assert payload["status"] == "ok", payload
                   assert payload["service"] == "enterprise-agent-hub", payload
+                  # 消息与 Worker 同源：环境与版本必须与 API 进程一致。
+                  assert payload["env"] == settings.CELERY_ENV_TAG, payload
+                  assert payload["version"] == settings.HUB_CODE_VERSION, payload
                   print("Celery worker / Redis broker / result backend OK:", result.id)
                   break
               except TimeoutError:

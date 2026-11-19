@@ -55,12 +55,17 @@ daphne -b 0.0.0.0 -p 8000 --proxy-headers main.asgi:application
 项目已集成 Celery + Redis，需与 Django 服务**分别启动** Worker 和（按需）Beat：
 
 ```bash
+# HUB_ENV 对同一环境的 Django / Worker / Beat 保持一致（默认 dev / prod 由 DEBUG 决定）；
+# 默认队列 hub-<HUB_ENV> 由 settings 统一推导，Worker 不加 -Q 即只消费本环境任务。
+set HUB_ENV=dev   # Windows；Linux/macOS 用 export
 celery -A main worker --loglevel=info --concurrency=2
 # 单独运行数据库调度 Beat（一个环境仅部署一个）
 celery -A main beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
 ```
 
-使用 `python manage.py shell` 运行 `from system.tasks import ping; ping.delay()` 验证任务派发。详见 [Celery 配置、部署与任务开发说明](../docs/development/celery.md) 和 [定时任务计划 V2 使用指南](../docs/development/automation-scheduler.md)。
+每条 Celery 消息都带环境与版本戳，Worker 校验不匹配即拒绝执行：测试任务不会流进正式队列，拉取代码后未重启的旧 Worker 也不会消费新版本消息（详见 [环境与版本匹配](../docs/development/celery.md#环境与版本匹配防串环境--防旧版-worker)）。
+
+使用 `python manage.py shell` 运行 `from system.tasks import ping; ping.delay()` 验证任务派发（返回值含 `env` / `version` 可核对同源）。详见 [Celery 配置、部署与任务开发说明](../docs/development/celery.md) 和 [定时任务计划 V2 使用指南](../docs/development/automation-scheduler.md)。
 
 ## P2-A 模型与执行治理\n\n管理员可从左侧“模型配置”页面配置 Provider（只填 env: 变量引用，禁止输入 API Key 明文）、模型价格和输出限制。用户在“Agent 执行”页面可取消排队或运行中任务并查看 Token/估算费用。详见 [P2-A 使用说明](../docs/platform-architecture/11-p2a-model-governance.md)。\n
 ## P2-B 持久会话与执行事件流

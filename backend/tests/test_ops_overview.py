@@ -108,7 +108,12 @@ def test_ops_heartbeat_writes_beat_and_worker_keys(monkeypatch):
     beat_key = pipe.set.call_args.args[0]
     assert beat_key.endswith("ops:beat_hb")
     assert pipe.set.call_args.kwargs.get("ex") == 900
-    assert pipe.hset.call_args.args[0].endswith("ops:worker_hb")
+    hset_keys = [call.args[0] for call in pipe.hset.call_args_list]
+    assert any(key.endswith("ops:worker_hb") for key in hset_keys)
+    # Worker 心跳同时上报环境/版本，供运维页面识别串环境的 Worker
+    meta_calls = [call for call in pipe.hset.call_args_list if call.args[0].endswith("ops:worker_meta")]
+    assert len(meta_calls) == 1
+    assert "env" in meta_calls[0].args[2] and "version" in meta_calls[0].args[2]
     assert pipe.expire.called
     assert pipe.execute.called
 

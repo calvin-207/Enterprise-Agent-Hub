@@ -15,6 +15,7 @@
 - 阈值统一收敛在本文件顶部，前端只负责展示。
 """
 
+import json
 import os
 import platform
 import socket
@@ -47,6 +48,8 @@ INSPECT_TIMEOUT_SECONDS = 1.0
 
 OPS_BEAT_KEY = "ops:beat_hb"
 OPS_WORKER_KEY = "ops:worker_hb"
+# Worker 心跳附带的环境/版本信息（JSON：{"env": ..., "version": ...}）
+OPS_WORKER_META_KEY = "ops:worker_meta"
 
 
 def _judge_percent(percent, warn, error):
@@ -73,9 +76,14 @@ def _human_bytes(size):
 
 
 def _cache_key(name):
-    """心跳键沿用 Django Redis 缓存的 KEY_PREFIX，避免污染缓存库键空间"""
+    """心跳键沿用 Django Redis 缓存的 KEY_PREFIX，并叠加环境标签。
+
+    多套环境共用同一个缓存 Redis 时，Beat / Worker 心跳按环境隔离，
+    测试环境的心跳不会让正式环境的运维页面误判 Beat 存活。
+    """
     prefix = settings.CACHES.get("default", {}).get("KEY_PREFIX", "")
-    return f"{prefix}:{name}" if prefix else name
+    parts = [part for part in (prefix, settings.CELERY_ENV_TAG, name) if part]
+    return ":".join(parts)
 
 
 def _redis_conn():
@@ -298,7 +306,7 @@ def check_redis():
 
 def _read_heartbeats():
     """读取心跳任务上报的 Beat / Worker 心跳数据；Redis 不可用时返回空结果"""
-    beat_at, worker_hb = None, {}
+    beat_at, worker_hb, worker_meta = None, {}, {}
     try:
         conn = _redis_conn()
         raw = conn.get(_cache_key(OPS_BEAT_KEY))
@@ -314,15 +322,25 @@ def _read_heartbeats():
             if "@" not in name:
                 name = f"celery@{name}"
             worker_hb[name] = parsed
+        for field, value in conn.hgetall(_cache_key(OPS_WORKER_META_KEY)).items():
+            name = _decode(field).lower()
+            if "@" not in name:
+                name = f"celery@{name}"
+            try:
+                meta = json.loads(_decode(value))
+                worker_meta[name] = {"env": meta.get("env"), "version": meta.get("version")}
+            except (ValueError, TypeError, AttributeError):
+                continue
     except Exception:
         pass
-    return beat_at, worker_hb
+    return beat_at, worker_hb, worker_meta
 
 
-def check_celery_worker(worker_hb):
+def check_celery_worker(worker_hb, worker_meta=None):
     """实时 inspect 探测在线 Worker，并补充心跳任务上报的最近心跳时间"""
     from main.celery import app as celery_app
 
+    worker_meta = worker_meta or {}
     try:
         inspector = celery_app.control.inspect(timeout=INSPECT_TIMEOUT_SECONDS)
         ping = inspector.ping() or {}
@@ -330,12 +348,16 @@ def check_celery_worker(worker_hb):
     except Exception:
         ping, stats = {}, {}
 
+    def _meta(name_lower):
+        return worker_meta.get(name_lower) or {}
+
     now = timezone.now()
     workers = []
     for name in sorted(ping):
         stat = stats.get(name) or {}
         pool = stat.get("pool") or {}
         hb_at = worker_hb.get(name.lower())
+        meta = _meta(name.lower())
         workers.append(
             {
                 "name": name,
@@ -343,6 +365,8 @@ def check_celery_worker(worker_hb):
                 "concurrency": pool.get("max-concurrency"),
                 "last_heartbeat": hb_at.strftime("%Y-%m-%d %H:%M:%S") if hb_at else None,
                 "heartbeat_age": round((now - hb_at).total_seconds()) if hb_at else None,
+                "env": meta.get("env"),
+                "version": meta.get("version"),
             }
         )
     # 心跳里有、但实时探测未响应的主机：可能刚下线或正忙
@@ -350,6 +374,7 @@ def check_celery_worker(worker_hb):
     for host, hb_at in worker_hb.items():
         if host in alive_lower:
             continue
+        meta = _meta(host)
         workers.append(
             {
                 "name": host,
@@ -357,6 +382,8 @@ def check_celery_worker(worker_hb):
                 "concurrency": None,
                 "last_heartbeat": hb_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "heartbeat_age": round((now - hb_at).total_seconds()),
+                "env": meta.get("env"),
+                "version": meta.get("version"),
             }
         )
 
@@ -378,6 +405,23 @@ def check_celery_worker(worker_hb):
     if stale and status == "ok":
         status = "warn"
         message = f"{count} 个 Worker 在线，但 {len(stale)} 个心跳超时（可能长时间忙）"
+    # 环境与版本匹配体检：上报了 meta 且与本服务不一致的 Worker 视为隐患。
+    # （未上报的老版本 Worker 不强判，避免升级期间误报）
+    mismatched = [
+        w for w in workers if w["alive"] and w["env"] is not None
+        and (w["env"] != settings.CELERY_ENV_TAG or w["version"] != settings.HUB_CODE_VERSION)
+    ]
+    if mismatched:
+        foreign = [w for w in mismatched if w["env"] != settings.CELERY_ENV_TAG]
+        detail = "存在与本服务环境/版本不一致的在线 Worker，任务可能被旧进程拒绝执行"
+        if foreign:
+            detail = (
+                f"{len(foreign)} 个 Worker 属于其他环境（如测试），共用 Broker 时有串环境风险，"
+                "请检查 HUB_ENV 配置"
+            )
+        if status == "ok":
+            status = "warn"
+        message = f"{message}；{detail}"
     return {
         "key": "celery_worker",
         "title": "Celery Worker",
@@ -387,6 +431,8 @@ def check_celery_worker(worker_hb):
         "metrics": [
             {"label": "在线数量", "value": str(count)},
             {"label": "总并发", "value": str(concurrency_total or "未知")},
+            {"label": "本服务环境", "value": settings.CELERY_ENV_TAG},
+            {"label": "本服务版本", "value": settings.HUB_CODE_VERSION},
         ],
     }
 
@@ -456,14 +502,14 @@ class OpsOverviewView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        beat_at, worker_hb = _read_heartbeats()
+        beat_at, worker_hb, worker_meta = _read_heartbeats()
         components = [
             check_cpu(),
             check_memory(),
             check_disk(),
             check_database(),
             check_redis(),
-            check_celery_worker(worker_hb),
+            check_celery_worker(worker_hb, worker_meta),
             check_celery_beat(beat_at),
         ]
         rank = {"ok": 0, "warn": 1, "error": 2}

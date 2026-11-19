@@ -27,7 +27,9 @@ def dispatch_pending(limit=50):
         try:
             execute_agent_run.apply_async(
                 args=[str(record.run_id)],
-                task_id=str(record.run_id), queue="default",
+                # 不指定 queue：跟随 settings.CELERY_TASK_DEFAULT_QUEUE（hub-<环境标签>），
+                # 保证与当前环境 Worker 的消费队列匹配。
+                task_id=str(record.run_id),
             )
         except Exception:
             # Message may already have arrived despite a network timeout.

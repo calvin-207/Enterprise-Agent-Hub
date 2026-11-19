@@ -51,7 +51,9 @@ celery -A main worker --loglevel=info --concurrency=2
 celery -A main beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
 ```
 
-如果没有运行 Beat，前端保存的 Cron 计划**不会自动触发**；如果没有运行 Worker，任务只会排队而不会执行。确认 `main/settings.py` 里的 Redis Broker 指向同一个 Redis。
+如果没有运行 Beat，前端保存的 Cron 计划**不会自动触发**；如果没有运行 Worker，任务只会排队而不会执行。确认 `main/settings.py` 里的 Redis Broker 指向同一个 Redis，且三个进程使用相同的 `HUB_ENV`（默认 `dev`）。
+
+**环境匹配**：计划归属的环境记录在 `TaskSchedule.environment`（计划列表「归属环境」列），`trigger_schedule` 只执行本环境的计划；PeriodicTask 不再写死队列，而是跟随应用默认队列 `hub-<HUB_ENV>`——由**运行 Beat 的环境**决定目标队列。因此共用数据库的多个环境也不会互相触发计划。详见 [Celery 环境与版本匹配](./celery.md#环境与版本匹配防串环境--防旧版-worker)。
 
 **时区**：当前项目 Django `TIME_ZONE=Asia/Shanghai`、`USE_TZ=False`，Cron 计划使用 Asia/Shanghai 业务时区，不提供逐条选择时区。切换全局时区后要重新评估已有计划的下次执行时间和 `last_run_at`。
 

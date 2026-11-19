@@ -26,6 +26,12 @@
         <el-table :data="schedules" v-loading="loading" row-key="id" stripe>
           <el-table-column prop="name" label="计划名称" min-width="150" show-overflow-tooltip />
           <el-table-column prop="definition_title" label="任务定义" min-width="140" show-overflow-tooltip />
+          <el-table-column label="归属环境" width="110">
+            <template #default="{ row }">
+              <el-tag v-if="row.environment" size="small" effect="plain" type="info">{{ row.environment }}</el-tag>
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
           <el-table-column label="Cron 表达式" min-width="200">
             <template #default="{ row }">
               <code>{{ cronText(row) }}</code>

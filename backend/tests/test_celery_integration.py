@@ -1,4 +1,5 @@
 """Celery integration tests that do not require a running Redis broker."""
+from django.conf import settings
 from celery import current_app
 
 from main.celery import app as celery_app
@@ -10,7 +11,8 @@ def test_celery_loads_django_and_json_transport():
     assert celery_app.conf.task_serializer == "json"
     assert celery_app.conf.result_serializer == "json"
     assert celery_app.conf.accept_content == ["json"]
-    assert celery_app.conf.task_default_queue == "default"
+    # 默认队列携带环境标签（hub-<env>），实现多环境物理隔离。
+    assert celery_app.conf.task_default_queue == f"hub-{settings.CELERY_ENV_TAG}"
     assert celery_app.conf.task_time_limit == 300
     assert celery_app.conf.task_soft_time_limit == 270
     assert celery_app.conf.worker_prefetch_multiplier == 1

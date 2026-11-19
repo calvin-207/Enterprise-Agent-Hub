@@ -30,10 +30,11 @@ def enqueue_execution(*, task_type, user, retry_of=None, definition=None, schedu
 
         def dispatch():
             try:
+                # 不指定 queue：跟随 settings.CELERY_TASK_DEFAULT_QUEUE（hub-<环境标签>），
+                # 与 Worker 的消费队列自动匹配，测试任务不会流入正式环境队列。
                 execute_automation.apply_async(
                     args=[execution.pk],
                     task_id=execution.celery_task_id,
-                    queue="default",
                 )
             except Exception:
                 # Never log a broker URL/password in the API response.

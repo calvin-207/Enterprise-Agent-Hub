@@ -221,6 +221,26 @@ LANGUAGE_CODE = "zh-Hans"
 
 TIME_ZONE = "Asia/Shanghai"
 
+# ====================================#
+# ****** Celery 环境与版本匹配 ******#
+# ====================================#
+# 同一 Redis Broker 可能被多套环境共用（本地开发 / 测试 / 生产）。
+# 每套环境用 HUB_ENV 打标签：默认队列名、消息头与 Worker 校验全部由它推导，
+# 测试环境的任务永远进不了正式 Worker 的队列，反之亦然。
+def _normalize_env_tag(value: str) -> str:
+    import re
+    tag = re.sub(r"[^a-z0-9-]+", "-", value.lower()).strip("-")[:30]
+    return tag
+
+HUB_ENV = os.environ.get("HUB_ENV", "").strip() or ("prod" if not DEBUG else "dev")
+CELERY_ENV_TAG = _normalize_env_tag(HUB_ENV) or "dev"
+
+# 当前部署的代码版本：环境变量 > git 短哈希 > VERSION 文件 > unknown。
+# 每条 Celery 消息都会盖上该版本戳，Worker 版本不一致时拒绝执行，
+# 防止"代码已更新但 Worker 未重启"的旧进程消费新版本任务。
+from main.version import get_code_version  # noqa: E402
+HUB_CODE_VERSION = get_code_version()
+
 # Celery: use Redis databases separate from Django caches (0-2).
 # Broker: DB 3. Results: DB 4. Both can be independently overridden.
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", f"{REDIS_URL}/3")
@@ -230,10 +250,17 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_ENABLE_UTC = True
+# django-celery-beat 与 USE_TZ=False 的兼容开关：默认 True 时 last_run_at 经
+# DateTimeField 存取会退化为 naive 本地时间，而 celery 约定 naive 一律按 UTC
+# 解释，导致 interval/crontab 的 due 计算偏移一个时区（本地 +8 即首跑推迟 8 小时）。
+# 置 False 后 django-celery-beat 全链路改用 naive UTC，与 celery 约定一致。
+DJANGO_CELERY_BEAT_TZ_AWARE = False
 # Enable persisted schedules; run exactly one Beat with this database scheduler.
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_DEFAULT_QUEUE = "default"
+# 队列名携带环境标签：Worker 不加 -Q 时只消费本环境的队列，
+# 发布方（API / Beat / Outbox）也投递到同名队列，实现物理隔离。
+CELERY_TASK_DEFAULT_QUEUE = f"hub-{CELERY_ENV_TAG}"
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TASK_SOFT_TIME_LIMIT = 270

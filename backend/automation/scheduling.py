@@ -33,6 +33,10 @@ def validate_cron(data):
 
 def sync_schedule(schedule):
     """Update a single, fixed-task-name database schedule."""
+    # 历史计划（environment 为空）在首次同步时落上当前环境标签。
+    if not schedule.environment:
+        schedule.environment = settings.CELERY_ENV_TAG
+        type(schedule).objects.filter(pk=schedule.pk).update(environment=schedule.environment)
     cron, _ = CrontabSchedule.objects.get_or_create(
         timezone=settings.TIME_ZONE,
         **{key: getattr(schedule, key) for key in CRON_FIELDS},
@@ -49,7 +53,9 @@ def sync_schedule(schedule):
         "clocked": None,
         "one_off": False,
         "enabled": bool(schedule.enabled and schedule.definition.enabled),
-        "queue": "default",
+        # 留空 = 跟随应用默认队列 hub-<CELERY_ENV_TAG>：由运行 Beat 的环境
+        # 在发布时决定目标队列，多环境共用 Broker 也不会互相串流。
+        "queue": "",
     }
     if schedule.periodic_task_id:
         periodic = PeriodicTask.objects.filter(pk=schedule.periodic_task_id).first()

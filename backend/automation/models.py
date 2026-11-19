@@ -58,6 +58,10 @@ class TaskSchedule(models.Model):
     """One database-backed Crontab for a reusable task definition."""
     name = models.CharField(max_length=120, unique=True)
     definition = models.ForeignKey(TaskDefinition, on_delete=models.CASCADE, related_name="schedules")
+    # 计划归属的环境标签（settings.CELERY_ENV_TAG）。空值表示历史数据尚未归属，
+    # 下次保存时由 sync_schedule 自动落戳；trigger_schedule 只执行本环境的计划，
+    # 防止其他环境的 Beat 误触发（例如共用数据库的开发 Beat 触发生产计划）。
+    environment = models.CharField(max_length=32, blank=True, default="")
     minute = models.CharField(max_length=60, default="0")
     hour = models.CharField(max_length=60, default="9")
     day_of_week = models.CharField(max_length=60, default="*")

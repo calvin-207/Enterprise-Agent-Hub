@@ -85,8 +85,14 @@
               </el-icon>
               <span class="worker-name">{{ worker.name }}</span>
               <span class="worker-meta">
-                并发 {{ worker.concurrency ?? "—" }} · 心跳 {{ formatHeartbeat(worker) }}
+                并发 {{ worker.concurrency ?? "—" }} · 心跳 {{ formatHeartbeat(worker) }}<template v-if="worker.env"> · {{ formatWorkerIdentity(worker) }}</template>
               </span>
+              <el-tooltip
+                v-if="workerMismatched(worker, card)"
+                :content="`该 Worker 与当前服务环境/版本不一致（服务：${serviceMetric(card, '本服务环境') ?? '—'} ${serviceMetric(card, '本服务版本') ?? ''}），存在串环境或旧版本消费风险`"
+              >
+                <el-tag size="small" type="warning" effect="plain">不匹配</el-tag>
+              </el-tooltip>
             </div>
           </div>
         </el-card>
@@ -181,6 +187,20 @@ const formatHeartbeat = (worker) => {
   const age = worker.heartbeat_age;
   const ageText = age === null ? "" : `（${age < 60 ? `${age} 秒前` : `${Math.floor(age / 60)} 分钟前`}）`;
   return `${worker.last_heartbeat}${ageText}`;
+};
+
+// Worker 心跳上报的环境与版本（旧版 Worker 未上报时不展示）
+const formatWorkerIdentity = (worker) => `环境 ${worker.env ?? "—"} · 版本 ${worker.version ?? "—"}`;
+
+const serviceMetric = (card, label) =>
+  card?.metrics?.find((metric) => metric.label === label)?.value;
+
+const workerMismatched = (worker, card) => {
+  if (!worker.env) return false;
+  const env = serviceMetric(card, "本服务环境");
+  const version = serviceMetric(card, "本服务版本");
+  if (!env) return false;
+  return worker.env !== env || (worker.version && version && worker.version !== version);
 };
 
 async function load() {
