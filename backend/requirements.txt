@@ -67,5 +67,5 @@ psutil==7.0.0
 # ================================================= #
 pytest==8.3.4
 pytest-django==4.9.0
-pytest-cov==6.0.0
+pytest-cov==7.1.0
 factory_boy==3.3.1
