@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 import VueSetupExtend from 'vite-plugin-vue-setup-extend'
 import { resolve } from 'path';
+import http from 'node:http';
 
 const pathResolve = (dir) => {
     return resolve(__dirname, '.', dir);
@@ -12,15 +13,39 @@ let alias = {
     '@': pathResolve('./src/'),
 }
 
-// 开发环境路径重写：根路径 / 为官网 SEO 落地页，管理控制台入口在 /app/（与线上 Django 路由保持一致，对应 app.html）
+// 开发环境路径处理：根路径 / 为官网 SEO 落地页，管理控制台入口在 /app/（与线上 Django 路由保持一致，对应 app.html）
+// 落地页文案由 Django 服务端注入模板变量，因此开发时把 / 代理到后端 9999 渲染；后端未启动时回退为源文件
+const BACKEND_ORIGIN = 'http://127.0.0.1:9999';
+
+function proxyLandingToBackend(req, res, next) {
+    const proxyReq = http.request(
+        `${BACKEND_ORIGIN}${req.url}`,
+        {
+            method: req.method,
+            headers: { ...req.headers, host: '127.0.0.1:9999' },
+        },
+        (proxyRes) => {
+            res.writeHead(proxyRes.statusCode, proxyRes.headers);
+            proxyRes.pipe(res);
+        }
+    );
+    // 后端不可用时回退到 Vite 静态源文件（模板变量会以 {{ }} 原样展示，启动后端后即恢复）
+    proxyReq.on('error', () => { next(); });
+    req.pipe(proxyReq);
+}
+
 function devAppPathRewrite() {
     return {
         name: 'dev-app-path-rewrite',
         configureServer(server) {
-            server.middlewares.use((req, _res, next) => {
+            server.middlewares.use((req, res, next) => {
                 const pathname = (req.url || '').split('?')[0];
                 if (pathname === '/app' || pathname === '/app/') {
                     req.url = '/app.html';
+                    return next();
+                }
+                if (pathname === '/') {
+                    return proxyLandingToBackend(req, res, next);
                 }
                 next();
             });
