@@ -7,14 +7,14 @@
 			<!-- <a v-if="navMenu.meta && navMenu.meta.type == 'link'" :href="navMenu.path" target="_blank"
 				@click.stop='() => { }'></a> -->
 			<!-- <SvgIcon v-if="navMenu.meta?.icon" :icon-class="navMenu.meta?.icon"></SvgIcon> -->
-			<SvgIcon v-if="navMenu.meta?.icon" :icon-class="navMenu.meta?.icon"></SvgIcon>
+			<MenuIcon v-if="navMenu.meta?.icon" :icon-class="navMenu.meta?.icon"></MenuIcon>
 			<template #title>
 				<span>{{ navMenu.meta.title }}</span>
 			</template>
 		</el-menu-item>
 		<el-sub-menu v-else :index="navMenu.path" :data-id="navMenu.path" @contextmenu="handleRightClick($event, navMenu.path)">
 			<template #title>
-				<SvgIcon v-if="navMenu.meta?.icon" :icon-class="navMenu.meta?.icon" style="font-size:20px !important;"></SvgIcon>
+				<MenuIcon v-if="navMenu.meta?.icon" :icon-class="navMenu.meta?.icon"></MenuIcon>
 				<span>{{ navMenu.meta.title }}</span>
 			</template>
 			<NavMenu :navMenus="navMenu.children"></NavMenu>
@@ -24,7 +24,7 @@
 
 <script setup>
 	import { computed } from 'vue'
-	import SvgIcon from '@/components/icons/SvgIcon.vue'
+	import MenuIcon from './MenuIcon.vue'
 	const props = defineProps({
 		navMenus: {
 			type: Array,
