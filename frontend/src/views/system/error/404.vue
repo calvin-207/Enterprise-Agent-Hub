@@ -76,8 +76,9 @@
             type: 'warning',
         }).then(() => {
             autoStorage.clearAll()
-            router.push('/login')
             ElMessage.success('已退出登录!')
+            // 退出后返回官网 SEO 落地页（控制台入口在 /app/），稍候让提示可见
+            setTimeout(() => { window.location.href = '/' }, 600)
         }).catch(() => {})
     }
 </script>
