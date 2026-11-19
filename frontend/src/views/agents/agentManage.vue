@@ -118,16 +118,29 @@
     </el-dialog>
 
     <el-drawer v-model="showGrants" :title="(selected?.name || '') + ' · 用户运行授权'" size="min(640px, 96vw)">
-      <el-alert class="notice" type="info" :closable="false" title="授权用户 ID 可在现有用户管理模块中查询。授权只允许运行 Agent，不赋予配置管理或业务 Tool 的额外权限。"/>
+      <el-alert class="notice" type="info" :closable="false" title="在下拉列表中选择用户，支持按账号/姓名/昵称/手机号模糊搜索。授权只允许运行 Agent，不赋予配置管理或业务 Tool 的额外权限。"/>
       <el-form inline @submit.prevent="addGrant">
-        <el-form-item label="用户 ID">
-          <el-input v-model.trim="grantUserId" placeholder="请输入平台用户 ID" style="width:240px"/>
+        <el-form-item label="授权用户">
+          <el-select
+            v-model="grantUserId"
+            filterable
+            clearable
+            :loading="usersLoading"
+            :filter-method="filterUsers"
+            placeholder="输入关键词模糊搜索用户"
+            style="width:280px"
+            @visible-change="onUserSelectToggle"
+          >
+            <el-option v-for="u in filteredUsers" :key="u.id" :value="u.id" :label="userLabel(u)"/>
+          </el-select>
         </el-form-item>
         <el-form-item><el-button type="primary" :loading="saving" @click="addGrant">授予运行权限</el-button></el-form-item>
       </el-form>
       <el-table :data="grants" v-loading="detailsLoading" stripe>
         <el-table-column prop="id" label="授权编号" width="115"/>
-        <el-table-column prop="user" label="用户 ID" min-width="170"/>
+        <el-table-column label="用户" min-width="170">
+          <template #default="{ row }">{{ grantUserLabel(row.user) }}</template>
+        </el-table-column>
         <el-table-column prop="capability" label="权限" width="90"/>
         <el-table-column label="操作" width="100">
           <template #default="{ row }">
@@ -144,6 +157,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Refresh } from "@element-plus/icons-vue";
+import Api from "@/api/api";
 import {
   listAgents, createAgent, updateAgent, listAgentVersions, createAgentVersion,
   updateAgentVersion, publishAgentVersion, revokeAgentTool,
@@ -174,6 +188,9 @@ const versionForm = ref({});
 const agentRef = ref(null);
 const versionRef = ref(null);
 const grantUserId = ref("");
+const users = ref([]);
+const filteredUsers = ref([]);
+const usersLoading = ref(false);
 const agentRules = {
   code: [
     { required: true, message: "请输入 Agent 标识", trigger: "blur" },
@@ -188,7 +205,11 @@ const versionRules = {
 };
 const statusLabel = (s) => ({ draft: "草稿", active: "已发布", disabled: "已停用" }[s] || s);
 const modelLabel = (id) => models.value.find((m) => m.id === id)?.model_code || `模型 #${id}`;
-function messageError(error, fallback) { ElMessage.error(error?.message || fallback); }
+function messageError(error, fallback) {
+  // 请求层已弹过窗的（HTTP 错误），这里不再重复提示
+  if (error?.handled) return;
+  ElMessage.error(error?.message || fallback);
+}
 async function reload() {
   loading.value = true;
   try {
@@ -290,6 +311,37 @@ async function revokeTool(tool) {
   } catch (e) { messageError(e, "撤销工具失败"); }
   finally { saving.value = false; }
 }
+function userLabel(u) {
+  const alias = u.nickname || u.name || "";
+  return alias ? `${u.username}（${alias}）` : u.username;
+}
+function grantUserLabel(id) {
+  const u = users.value.find((x) => String(x.id) === String(id));
+  return u ? `${userLabel(u)} · ID:${id}` : `ID:${id}`;
+}
+function filterUsers(keyword) {
+  const kw = String(keyword || "").trim().toLowerCase();
+  filteredUsers.value = !kw
+    ? users.value
+    : users.value.filter((u) => [u.username, u.name, u.nickname, u.mobile]
+      .some((v) => String(v || "").toLowerCase().includes(kw)));
+}
+function onUserSelectToggle(visible) {
+  // 展开时恢复完整列表，避免残留上一次的过滤结果
+  if (visible) filterUsers("");
+}
+async function loadUsers() {
+  usersLoading.value = true;
+  try {
+    const res = await Api.apiSystemUser({ page: 1, limit: 999 });
+    if (res.code !== 2000) throw new Error(res.msg || "读取用户列表失败");
+    const list = (res.data && res.data.data) || [];
+    // 仅保留启用状态的用户，停用账号无法登录也就无法运行 Agent
+    users.value = list.filter((u) => u.is_active);
+    filterUsers("");
+  } catch (e) { messageError(e, "读取用户列表失败"); }
+  finally { usersLoading.value = false; }
+}
 async function refreshGrants() {
   detailsLoading.value = true;
   try {
@@ -303,10 +355,10 @@ async function openGrants(row) {
   selected.value = row;
   grantUserId.value = "";
   showGrants.value = true;
-  await refreshGrants();
+  await Promise.all([refreshGrants(), loadUsers()]);
 }
 async function addGrant() {
-  if (!grantUserId.value) return ElMessage.warning("请输入用户 ID");
+  if (!grantUserId.value) return ElMessage.warning("请选择要授权的用户");
   saving.value = true;
   try {
     const res = await createAgentGrant(selected.value.id, { user: grantUserId.value, capability: "run" });
@@ -318,7 +370,7 @@ async function addGrant() {
   finally { saving.value = false; }
 }
 async function removeGrant(row) {
-  try { await ElMessageBox.confirm(`确定撤销用户 ${row.user} 的运行权限？`, "确认撤销", { type: "warning" }); }
+  try { await ElMessageBox.confirm(`确定撤销用户 ${grantUserLabel(row.user)} 的运行权限？`, "确认撤销", { type: "warning" }); }
   catch { return; }
   saving.value = true;
   try {
