@@ -240,16 +240,29 @@ CELERY_TASK_SOFT_TIME_LIMIT = 270
 CELERY_TASK_TIME_LIMIT = 300
 CELERY_RESULT_EXPIRES = 86400
 # Beat is opt-in: run exactly one scheduler per deployment.
-CELERY_BEAT_SCHEDULE = (
-    {
-        "system-database-healthcheck": {
-            "task": "system.check_database",
-            "schedule": 900.0,
+# Ops heartbeat feeds the 运维管理 dashboard (worker/beat liveness); on by default.
+CELERY_BEAT_SCHEDULE = {
+    **(
+        {
+            "system-database-healthcheck": {
+                "task": "system.check_database",
+                "schedule": 900.0,
+            }
         }
-    }
-    if os.environ.get("CELERY_ENABLE_HEALTHCHECK_SCHEDULE", "false").lower() == "true"
-    else {}
-)
+        if os.environ.get("CELERY_ENABLE_HEALTHCHECK_SCHEDULE", "false").lower() == "true"
+        else {}
+    ),
+    **(
+        {
+            "system-ops-heartbeat": {
+                "task": "system.ops_heartbeat",
+                "schedule": 60.0,
+            }
+        }
+        if os.environ.get("CELERY_ENABLE_OPS_HEARTBEAT", "true").lower() == "true"
+        else {}
+    ),
+}
 
 
 USE_I18N = True

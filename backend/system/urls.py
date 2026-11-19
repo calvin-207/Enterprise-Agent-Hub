@@ -23,6 +23,7 @@ from system.views.system_config import (
     GetSystemConfigSettingsView,
 )
 from system.views.notification import NotificationViewSet
+from system.views.ops import OpsOverviewView
 
 system_url = routers.SimpleRouter()
 system_url.register(r"menu", MenuViewSet)
@@ -43,6 +44,7 @@ system_url.register(r"msg", NotificationViewSet)
 
 urlpatterns = [
     path("sys_image_upload/", SysImagesUploadView.as_view()),
+    path("ops/overview/", OpsOverviewView.as_view(), name="运维状态概览"),
     re_path("menu/update_sort/", MenuViewSet.as_view({"post": "update_sort"})),
     re_path("menu_tree/", MenuViewSet.as_view({"get": "menu_tree"})),
     re_path(

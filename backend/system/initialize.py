@@ -126,6 +126,7 @@ class Initialize:
             {"code": "6354ba32ae734b5eaa799a65f76deee6", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Setting", "name": "平台设置", "sort": 10, "type": 1, "web_path": "/systemConfig", "component_name": "systemConfig"},
             {"code": "205910763e0e42fbbc12833d2f7d61bb", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Reading", "name": "数据字典", "sort": 20, "type": 1, "web_path": "/sysDictionary", "component_name": "sysDictionary"},
             {"code": "4f947108c5bf44f2b97e4a80daebf772", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Bell", "name": "通知公告", "sort": 30, "type": 1, "web_path": "/messagNotice", "component_name": "messagNotice"},
+            {"code": "eah-ops-manage-v1", "parent_code": "563092a536194a1493551a0043f1f1a3", "icon": "Monitor", "name": "运维管理", "sort": 40, "type": 1, "web_path": "/opsManage", "component_name": "opsManage"},
         ]
 
         # Only remove the three known demo entries from the original template.
@@ -136,6 +137,10 @@ class Initialize:
             "9ece0330c65e40df8da00190107d908e",  # 外链测试
         )
         Menu.objects.filter(code__in=legacy_demo_codes).delete()
+
+        # 小程序装修(/leediy)为模板遗留演示功能，前端静态路由已移除；
+        # 一并清理可能经菜单管理手工创建的同路径残留菜单。
+        Menu.objects.filter(web_path__startswith="/leediy").delete()
 
         saved_menus = {}
         for item in menu_definitions:
@@ -751,6 +756,14 @@ class Initialize:
                 "value": "myMessage:Detail",
                 "api": "/api/system/msg/readownmsg/",
                 "method": 1,
+            },
+            {
+                "id": 78,
+                "menu_id": "eah-ops-manage-v1",
+                "name": "查询",
+                "value": "opsManage:Search",
+                "api": "/api/system/ops/overview/",
+                "method": 0,
             },
         ]
         menu_dict = {it.code: it for it in Menu.objects.all()}

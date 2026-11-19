@@ -264,6 +264,10 @@ Api.delOwnMessage = (params) =>
 Api.readOwnMessage = (params) =>
   ajaxPost({ url: `/api/system/msg/readownmsg/`, params });
 
+//运维管理 —— 平台运行状态概览
+Api.apiSystemOpsOverview = (params) =>
+  ajaxGet({ url: `/api/system/ops/overview/`, params });
+
 
 /**
  *小程序装修
