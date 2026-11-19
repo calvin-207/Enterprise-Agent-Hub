@@ -55,7 +55,17 @@ class TestSeoLandingPage:
         """落地页为纯静态 HTML，登录入口是可抓取的 <a> 链接而非 JS 渲染"""
         resp = page_client.get("/")
         html = resp.content.decode("utf-8")
-        assert '<a class="btn btn-primary" href="/app/#/login"' in html
+        assert '<a class="btn btn-primary js-open-login" href="/app/#/login"' in html
+
+    def test_landing_has_inline_login_modal(self, page_client):
+        """落地页内置登录弹窗：直接调用 /api/token/，无需跳转到登录页"""
+        resp = page_client.get("/")
+        html = resp.content.decode("utf-8")
+        assert 'id="loginModal"' in html
+        assert 'id="loginForm"' in html
+        assert "/api/token/" in html
+        # 验证码开关按系统配置探测（loginCaptcha）
+        assert "/api/system/getconfig/" in html
 
 
 @pytest.mark.skipif(
