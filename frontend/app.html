@@ -41,7 +41,7 @@
         })();
         </script>
         <style>
-            .app-loading {position: absolute;top:0px;left:0px;right:0px;bottom:0px;display: flex;justify-content: center;align-items: center;flex-direction: column;background:fff;transition: background-color 0.3s ease;}
+            .app-loading {position: absolute;top:0px;left:0px;right:0px;bottom:0px;display: flex;justify-content: center;align-items: center;flex-direction: column;background:#fff;transition: background-color 0.3s ease;}
             .app-loading__logo {margin-bottom: 30px;}
             .app-loading__logo img {width: 90px;vertical-align: bottom;animation: floatUpDown 2.5s ease-in-out infinite;}
             .app-loading__loader {box-sizing: border-box;width: 35px;height: 35px;border: 5px solid transparent;border-top-color: #000;border-radius: 50%;animation: .5s loader linear infinite;position: relative;}
@@ -80,7 +80,8 @@
         <div id="app" class="lee-panel">
             <div class="app-loading lyloading_particles" id="lyloading_particles">
                 <div class="app-loading__logo">
-                    <img src="./src/assets/lee/imgs/logo.png"/>
+                    <!-- 根路径绝对引用：页面在 /app/ 下渲染，相对路径 ./src/... 会被解析为 /app/src/... 导致 404（Vite 构建时仍会重写为带 hash 的 /static/ 产物） -->
+                    <img src="/src/assets/lee/imgs/logo.png"/>
                 </div>
                 <div class="app-loading__loader"></div>
                 <div class="app-loading__title">加载中</div>

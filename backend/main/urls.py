@@ -17,6 +17,8 @@ Including another URLconf
 
 from django.urls import path, include, re_path
 from django.views.static import serve
+from django.contrib.staticfiles.views import serve as staticfiles_serve
+from django.http import Http404
 from django.conf import settings
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -38,11 +40,22 @@ from system.views.login import LoginView, CaptchaView
 from system.views.frontend import h5web, SeoLandingPageView
 from system.views.leeapp import leeapp_index, leeapp_static
 
+def _serve_static_dev(request, path):
+    """DEBUG 下优先走 staticfiles finder（STATICFILES_DIRS 中的前端构建产物 leeadmin/static），
+    未命中再回落 STATIC_ROOT（如手工放置的 favicon.ico），行为对齐 runserver 的 staticfiles 包装。"""
+    try:
+        return staticfiles_serve(request, path)
+    except Http404:
+        return serve(request, path, document_root=settings.STATIC_ROOT)
+
+
 urlpatterns = [
     path(
         "static/<path:path>",
-        serve,
-        {"document_root": settings.STATIC_ROOT},
+        # 本地经 daphne/uvicorn 直跑 ASGI 时没有 runserver 的 staticfiles 包装，DEBUG 下需
+        # 直接服务前端构建产物；生产走 collectstatic 汇总后的 STATIC_ROOT
+        (_serve_static_dev if settings.DEBUG else serve),
+        (None if settings.DEBUG else {"document_root": settings.STATIC_ROOT}),
     ),  # 处理静态文件
     path(
         "media/<path:path>",
