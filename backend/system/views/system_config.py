@@ -151,7 +151,9 @@ class SystemConfigUpdateSerializer(CustomModelSerializer):
     class Meta:
         model = SystemConfig
         fields = "__all__"
-        read_only_fields = ["id"]
+        # creator 只读：init 种子行 creator=0（无对应用户），前端整行回传时避免
+        # 触发「creator: 无效主键」校验错误；更新时 modifier 由序列化器按请求用户自动写入
+        read_only_fields = ["id", "creator"]
         extra_kwargs = {
             "key": {"required": False},
             "title": {"required": False},
