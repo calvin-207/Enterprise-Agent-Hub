@@ -45,12 +45,19 @@ REDIS_LATENCY_WARN_MS, REDIS_LATENCY_ERROR_MS = 50, 200
 HEARTBEAT_FRESH_SECONDS = 180
 HEARTBEAT_STALE_SECONDS = 900
 INSPECT_TIMEOUT_SECONDS = 1.0
+# 主服务（API 进程）内存隐患阈值
+MAIN_SERVICE_MEM_WARN_MB = 1024
+MAIN_SERVICE_MEM_ERROR_MB = 2048
 
 # 日志查看：目录、单次返回行数上限、单块读取大小
 LOGS_DIR = os.path.join(settings.BASE_DIR, "logs")
 LOG_DEFAULT_LINES = 200
 LOG_MAX_LINES = 500
 LOG_MAX_FILES = 30
+# 实时尾随（tail -f）：轮询周期与单次增量上限（wsopslog 复用）
+POLL_INTERVAL_SECONDS = 1.0
+MAX_BATCH_LINES = 500
+MAX_BATCH_BYTES = 262144  # 256KB
 
 OPS_BEAT_KEY = "ops:beat_hb"
 OPS_WORKER_KEY = "ops:worker_hb"
@@ -113,6 +120,64 @@ def _parse_iso(value):
         return datetime.fromisoformat(str(_decode(value)))
     except (TypeError, ValueError):
         return None
+
+
+def check_main_service():
+    """主服务（响应本接口的 Django/Daphne 进程）自身状态。
+
+    接口能返回即证明进程活着；卡片重点暴露进程级隐患：
+    内存持续增长（疑似泄漏）、进程 CPU 占用异常偏高。
+    """
+    title = "主服务（API）"
+    if psutil is None:
+        return {
+            "key": "main_service",
+            "title": title,
+            "status": "warn",
+            "message": "运行中（未安装 psutil，进程指标不可用）",
+            "metrics": [
+                {"label": "运行状态", "value": "运行中"},
+                {"label": "框架", "value": f"Django {django.get_version()} · Python {platform.python_version()}"},
+                {"label": "运行模式", "value": "开发模式（DEBUG）" if settings.DEBUG else "生产模式"},
+            ],
+        }
+    try:
+        proc = psutil.Process(os.getpid())
+        rss_mb = proc.memory_info().rss / 1024 / 1024
+        cpu_percent = proc.cpu_percent(interval=0.1)
+        uptime_seconds = int(time.time() - proc.create_time())
+        threads = proc.num_threads()
+        uptime_text = str(timedelta(seconds=uptime_seconds))
+    except (psutil.Error, OSError) as exc:
+        return {
+            "key": "main_service",
+            "title": title,
+            "status": "error",
+            "message": f"进程指标读取失败：{exc}",
+            "metrics": [],
+        }
+    if rss_mb >= MAIN_SERVICE_MEM_ERROR_MB:
+        status, message = "error", f"内存占用过高（{rss_mb:.0f} MB），疑似泄漏，请重启或排查"
+    elif rss_mb >= MAIN_SERVICE_MEM_WARN_MB:
+        status, message = "warn", f"内存占用偏高（{rss_mb:.0f} MB），关注增长趋势"
+    else:
+        status, message = "ok", f"运行中，内存 {rss_mb:.0f} MB"
+    return {
+        "key": "main_service",
+        "title": title,
+        "status": status,
+        "message": message,
+        "metrics": [
+            {"label": "运行状态", "value": "运行中（本接口可响应即为证明）"},
+            {"label": "进程 PID", "value": str(proc.pid)},
+            {"label": "已运行", "value": uptime_text},
+            {"label": "进程内存", "value": f"{rss_mb:.0f} MB"},
+            {"label": "进程 CPU", "value": f"{cpu_percent:.0f}%"},
+            {"label": "线程数", "value": str(threads)},
+            {"label": "框架", "value": f"Django {django.get_version()} · Python {platform.python_version()}"},
+            {"label": "运行模式", "value": "开发模式（DEBUG）" if settings.DEBUG else "生产模式"},
+        ],
+    }
 
 
 def check_cpu():
@@ -559,6 +624,7 @@ class OpsOverviewView(APIView):
     def get(self, request):
         beat_at, worker_hb, worker_meta, beat_mismatch = _read_heartbeats()
         components = [
+            check_main_service(),
             check_cpu(),
             check_memory(),
             check_disk(),

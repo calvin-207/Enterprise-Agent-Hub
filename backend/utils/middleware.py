@@ -304,6 +304,10 @@ def has_permission(user, path):
             return False
         if method == 5 and api == "/ws/msg/":
             return True
+        if method == 5 and api == "/ws/ops/logs/":
+            # 运维日志实时尾随：与 REST 接口 /api/system/ops/logs/ 的
+            # IsAdminUser 同口径（consumer 内还会二次校验 is_staff）
+            return bool(user.is_staff)
         userApiList = user.role.values(
             "permission__api", "permission__method"
         )  # 获取当前用户的角色拥有的所有接口

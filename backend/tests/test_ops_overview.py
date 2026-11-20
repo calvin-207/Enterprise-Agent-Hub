@@ -19,6 +19,7 @@ from system.tasks import ops_heartbeat
 from system.views.ops import _judge_percent, check_celery_beat
 
 EXPECTED_COMPONENT_KEYS = [
+    "main_service",
     "cpu",
     "memory",
     "disk",
